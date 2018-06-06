@@ -41,3 +41,13 @@ impl<S: Size> MosaicArt<S> {
         self.image.copy_from(image.image(), pos.x, pos.y);
     }
 }
+
+impl<S: Size> Image for MosaicArt<S> {
+    type Size = S;
+    type Image = RgbaImage;
+    type Pixel = Rgba<u8>;
+
+    fn image(&self) -> &RgbaImage {
+        &self.image
+    }
+}
