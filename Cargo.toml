@@ -4,3 +4,15 @@ version = "0.1.0"
 authors = ["AtsukiTak <takatomgoo@gmail.com>"]
 
 [dependencies]
+tokio-core = "0.1"
+futures = "0.1"
+hyper = "0.12"
+hyper-tls = "0.2"
+
+image = { git = "https://github.com/PistonDevelopers/image.git", branch = "master" }
+
+serde = "1"
+serde_json = "1"
+serde_derive = "1"
+
+error-chain = "0.11"
