@@ -4,15 +4,24 @@ version = "0.1.0"
 authors = ["AtsukiTak <takatomgoo@gmail.com>"]
 
 [dependencies]
+tokio = "0.1"
 tokio-core = "0.1"
 futures = "0.1"
 hyper = "0.12"
 hyper-tls = "0.2"
+http = "0.1"
+
+rocket = "0.3"
+rocket_codegen = "0.3"
+rocket_contrib = "0.3"
+base64 = "0.9"
 
 image = { git = "https://github.com/PistonDevelopers/image.git", branch = "master" }
 
 serde = "1"
 serde_json = "1"
 serde_derive = "1"
+
+rand = "0.5"
 
 error-chain = "0.11"

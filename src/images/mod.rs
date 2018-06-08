@@ -1,13 +1,13 @@
+pub mod size;
+pub mod fetcher;
+
+pub use self::size::{MultipleOf, Size, SmallerThan};
+pub use self::fetcher::ImageFetcher;
+
 use std::marker::PhantomData;
 
-use image::{DynamicImage, GenericImageView, Pixel, SubImage, Rgba};
+use image::{GenericImage, GenericImageView, Pixel, SubImage};
 
-// pub mod container;
-// pub mod origin;
-// pub mod piece;
-pub mod size;
-
-pub use self::size::{MultipleOf, Size};
 
 pub trait Image {
     type Size: Size;
@@ -15,6 +15,8 @@ pub trait Image {
     type Pixel: Pixel<Subpixel = u8>;
 
     fn image(&self) -> &Self::Image;
+
+    fn image_mut(&mut self) -> &mut Self::Image;
 
     fn mean_grayscale(&self) -> f64 {
         let img = ::image::imageops::grayscale(self.image());
@@ -34,33 +36,18 @@ pub trait Image {
             phantom: PhantomData,
         }
     }
-}
 
-pub struct ProvidedImage<S> {
-    image: DynamicImage,
-    phantom: PhantomData<S>,
-}
-
-impl<S: Size> ProvidedImage<S> {
-    pub fn new(image: DynamicImage) -> ProvidedImage<S> {
-        ProvidedImage {
-            image: image.thumbnail_exact(S::WIDTH, S::HEIGHT),
-            phantom: PhantomData,
-        }
+    fn overpaint_by<I>(&mut self, image: I, pos: Position)
+    where
+        Self::Image: GenericImage,
+        I: Image<Pixel = Self::Pixel>,
+        I::Size: SmallerThan<Self::Size>,
+    {
+        self.image_mut().copy_from(image.image(), pos.x, pos.y);
     }
 }
 
-impl<S: Size> Image for ProvidedImage<S> {
-    type Size = S;
-    type Image = DynamicImage;
-    type Pixel = Rgba<u8>;
-
-    fn image(&self) -> &Self::Image {
-        &self.image
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: u32,
     pub y: u32,
@@ -96,6 +83,10 @@ where
 
     fn image(&self) -> &Self::Image {
         &self.image
+    }
+
+    fn image_mut(&mut self) -> &mut Self::Image {
+        &mut self.image
     }
 }
 

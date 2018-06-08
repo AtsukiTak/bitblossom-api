@@ -12,7 +12,7 @@ pub struct GrayscalePositionFinder<S, SS> {
 
 impl<S, SS> GrayscalePositionFinder<S, SS>
 where
-    S: MultipleOf<S>,
+    S: MultipleOf<SS>,
     SS: Size,
 {
     pub fn new<I>(origin_image: I) -> GrayscalePositionFinder<S, SS>
@@ -29,7 +29,7 @@ where
         }
     }
 
-    fn find_position<I>(&mut self, piece: &I) -> Position
+    pub fn find_position<I>(&self, piece: &I) -> Position
     where
         I: Image<Size = SS>,
     {

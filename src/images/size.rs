@@ -1,4 +1,4 @@
-pub trait Size {
+pub trait Size: Send + Sync + 'static {
     const WIDTH: u32;
     const HEIGHT: u32;
 }

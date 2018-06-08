@@ -1,9 +1,6 @@
 use std::str::FromStr;
-
 use futures::{Future, Stream};
-
 use hyper::{Uri, client::{Client, HttpConnector}};
-use hyper_tls::HttpsConnector;
 
 use error::Error;
 
@@ -42,9 +39,12 @@ impl InstaApi {
             .and_then(|chunk| Ok(::serde_json::from_slice::<RawResponse>(&chunk)?.posts))
     }
 
-    pub fn get_post_by_id(&self, post_id: &str) -> impl Future<Item = InstaPost, Error = Error> {
-        let url =
-            Uri::from_str(format!("{}/posts/{}", self.api_server_host, post_id).as_str()).unwrap();
+    pub fn get_post_by_id(
+        &self,
+        post_id: &InstaPostId,
+    ) -> impl Future<Item = InstaPost, Error = Error> {
+        let url = Uri::from_str(format!("{}/posts/{}", self.api_server_host, post_id.0).as_str())
+            .unwrap();
 
         self.client
             .get(url)
@@ -54,15 +54,18 @@ impl InstaApi {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InstaPostId(pub String);
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct InstaPartialPost {
-    pub post_id: String,
-    pub img_url: String,
+    pub post_id: InstaPostId,
+    pub image_url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct InstaPost {
-    pub post_id: String,
-    pub img_url: String,
+    pub post_id: InstaPostId,
+    pub image_url: String,
     pub user_name: String,
 }
