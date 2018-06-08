@@ -1,3 +1,4 @@
+#![allow(renamed_and_removed_lints)]
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
@@ -29,6 +30,10 @@ pub mod error;
 pub mod api_server;
 
 fn main() {
-    let insta_api_host = "".into();
+    let insta_api_host = get_env("INSTA_API_SERVER_HOST").unwrap();
     api_server::run(insta_api_host);
+}
+
+fn get_env(key: &str) -> Option<String> {
+    ::std::env::var(key).ok()
 }
