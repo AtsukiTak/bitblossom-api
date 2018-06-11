@@ -1,8 +1,8 @@
 pub mod feeder;
-pub mod insta_api;
+pub mod api;
 
 pub use self::feeder::InstaFeeder;
-pub use self::insta_api::{InstaApi, InstaPartialPostResponse, InstaPostResponse};
+pub use self::api::{InstaApi, InstaPartialPostResponse, InstaPostResponse};
 
 use images::{FetchedImage, Size};
 

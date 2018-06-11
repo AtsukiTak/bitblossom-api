@@ -1,6 +1,8 @@
 use std::str::FromStr;
-use futures::{Future, Stream};
+use futures::{stream, Future, Stream};
 use hyper::{Uri, client::{Client, HttpConnector}};
+use serde_json::error::Error as SerdeError;
+use serde::de::DeserializeOwned;
 
 use insta::InstaPostId;
 use error::Error;
@@ -37,11 +39,10 @@ impl InstaApi {
             format!("http://{}/posts?hashtag={}", self.api_server_host, hashtag).as_str(),
         ).unwrap();
 
-        self.client
-            .get(url)
-            .and_then(|res| res.into_body().concat2())
-            .map_err(|hyper_err| Error::from(hyper_err))
-            .and_then(|chunk| Ok(::serde_json::from_slice::<RawResponse>(&chunk)?.posts))
+        let client = self.client.clone();
+
+        // Return first response successed to be parsed
+        first_ok(chained_fut_stream(move || call_api::<RawResponse>(&client, url.clone()))).map(|raw| raw.posts)
     }
 
     pub fn get_post_by_id(
@@ -52,12 +53,41 @@ impl InstaApi {
             format!("http://{}/posts/{}", self.api_server_host, post_id.0).as_str(),
         ).unwrap();
 
-        self.client
-            .get(url)
-            .and_then(|res| res.into_body().concat2())
-            .map_err(|hyper_err| Error::from(hyper_err))
-            .and_then(|chunk| Ok(::serde_json::from_slice::<InstaPostResponse>(&chunk)?))
+        let client = self.client.clone();
+
+        // Return first response successed to be parsed
+        first_ok(chained_fut_stream(move || call_api::<InstaPostResponse>(&client, url.clone())))
     }
+}
+
+fn call_api<R: DeserializeOwned>(
+    client: &Client<HttpConnector>,
+    url: Uri,
+) -> impl Future<Item = Result<R, SerdeError>, Error = Error> {
+    client
+        .get(url)
+        .and_then(|res| res.into_body().concat2())
+        .map_err(Error::from)
+        .map(|chunk| ::serde_json::from_slice::<R>(&chunk))
+}
+
+fn chained_fut_stream<F, Fut, T, E>(mut f: F) -> impl Stream<Item = T, Error = E>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Item = T, Error = E>,
+{
+    stream::unfold((), move |()| Some(f().map(|t| (t, ()))))
+}
+
+fn first_ok<S, T, E, E2>(stream: S) -> impl Future<Item = T, Error = E>
+where
+    S: Stream<Item = Result<T, E2>, Error = E>,
+{
+    stream
+        .filter_map(|res| res.ok())
+        .into_future()
+        .map_err(|(e, _s)| e)
+        .map(|(opt, _s)| opt.unwrap())
 }
 
 #[derive(Deserialize, Debug, Clone)]
