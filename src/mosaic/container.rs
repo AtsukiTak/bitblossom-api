@@ -1,30 +1,43 @@
-use std::{mem, collections::HashMap, hash::{BuildHasher, Hasher}, sync::{Arc, Mutex}};
+use std::{mem, collections::HashMap, hash::{BuildHasher, Hasher}};
 use rand::{FromEntropy, RngCore, prng::XorShiftRng};
 
-use images::size::Size;
-use mosaic::MosaicArt;
+use images::size::{MultipleOf, Size};
+use mosaic::SharedMosaicArt;
 
-pub struct ArtContainer<S> {
-    container: HashMap<u64, Arc<Mutex<MosaicArt<S>>>, NothingU64HasherBuilder>,
+#[derive(Debug, PartialEq, Eq)]
+pub struct MosaicArtId(pub u64);
+
+impl ::std::fmt::Display for MosaicArtId {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub struct MosaicArtContainer<S, SS> {
+    container: HashMap<u64, SharedMosaicArt<S, SS>, NothingU64HasherBuilder>,
     id_gen: IdGenerator,
 }
 
-impl<S: Size> ArtContainer<S> {
-    pub fn new() -> ArtContainer<S> {
-        ArtContainer {
+impl<S, SS> MosaicArtContainer<S, SS>
+where
+    S: Size + MultipleOf<SS>,
+    SS: Size,
+{
+    pub fn new() -> MosaicArtContainer<S, SS> {
+        MosaicArtContainer {
             container: HashMap::with_hasher(NothingU64HasherBuilder),
             id_gen: IdGenerator::new(),
         }
     }
 
-    pub fn add(&mut self, art: Arc<Mutex<MosaicArt<S>>>) -> u64 {
+    pub fn add(&mut self, art: SharedMosaicArt<S, SS>) -> MosaicArtId {
         let id = self.id_gen.next_id();
         self.container.insert(id, art);
-        id
+        MosaicArtId(id)
     }
 
-    pub fn get(&self, id: u64) -> Option<&Arc<Mutex<MosaicArt<S>>>> {
-        self.container.get(&id)
+    pub fn get(&self, id: MosaicArtId) -> Option<&SharedMosaicArt<S, SS>> {
+        self.container.get(&id.0)
     }
 }
 

@@ -1,10 +1,10 @@
-use std::{str::FromStr, marker::PhantomData};
+use std::{marker::PhantomData, str::FromStr};
 use hyper::{Uri, client::{Client, HttpConnector}};
 use hyper_tls::HttpsConnector;
 use futures::{Future, Stream};
-use image::{DynamicImage, Rgba};
+use image::{DynamicImage, RgbaImage};
 
-use images::{size::Size, Image};
+use images::{Image, size::Size};
 use error::Error;
 
 #[derive(Debug)]
@@ -34,30 +34,34 @@ impl ImageFetcher {
 }
 
 pub struct FetchedImage<S> {
-    image: DynamicImage,
+    image: RgbaImage,
     phantom: PhantomData<S>,
 }
 
 impl<S: Size> Image for FetchedImage<S> {
     type Size = S;
-    type Image = DynamicImage;
-    type Pixel = Rgba<u8>;
 
-    fn image(&self) -> &Self::Image {
+    fn image(&self) -> &RgbaImage {
         &self.image
     }
 
-    fn image_mut(&mut self) -> &mut Self::Image {
+    fn image_mut(&mut self) -> &mut RgbaImage {
         &mut self.image
     }
 }
 
 impl<S: Size> FetchedImage<S> {
     fn new(org: DynamicImage) -> FetchedImage<S> {
-        let cropped = org.thumbnail_exact(S::WIDTH, S::HEIGHT);
+        let cropped = org.thumbnail_exact(S::WIDTH, S::HEIGHT).to_rgba();
         FetchedImage {
             image: cropped,
             phantom: PhantomData,
         }
+    }
+}
+
+impl<S> ::std::fmt::Debug for FetchedImage<S> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+        write!(f, "FetchedImage")
     }
 }

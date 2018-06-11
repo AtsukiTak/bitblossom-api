@@ -23,17 +23,22 @@ extern crate serde_json;
 #[macro_use]
 extern crate error_chain;
 extern crate rand;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 pub mod mosaic;
 pub mod images;
-pub mod error;
+pub mod insta;
 pub mod api_server;
+pub mod error;
 
 fn main() {
-    let insta_api_host = get_env("INSTA_API_SERVER_HOST").unwrap();
+    env_logger::init();
+    let insta_api_host = get_env("INSTA_API_SERVER_HOST");
     api_server::run(insta_api_host);
 }
 
-fn get_env(key: &str) -> Option<String> {
-    ::std::env::var(key).ok()
+fn get_env(key: &str) -> String {
+    ::std::env::var(key).expect(format!("{} env var is not found", key).as_str())
 }

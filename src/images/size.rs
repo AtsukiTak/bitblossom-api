@@ -1,4 +1,6 @@
-pub trait Size: Send + Sync + 'static {
+use std::fmt::Debug;
+
+pub trait Size: Send + Sync + Debug + Clone + 'static {
     const WIDTH: u32;
     const HEIGHT: u32;
 }
@@ -7,6 +9,7 @@ pub trait MultipleOf<T>: Size {}
 
 pub trait SmallerThan<T>: Size {}
 
+#[derive(Debug, Clone)]
 pub struct Size30x30;
 
 impl Size for Size30x30 {
@@ -16,6 +19,7 @@ impl Size for Size30x30 {
 
 impl SmallerThan<Size1500x1500> for Size30x30 {}
 
+#[derive(Debug, Clone)]
 pub struct Size1500x1500;
 
 impl Size for Size1500x1500 {

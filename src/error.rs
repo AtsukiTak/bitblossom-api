@@ -11,4 +11,11 @@ error_chain! {
         Timer(::tokio::timer::Error);
         Base64Decode(::base64::DecodeError);
     }
+
+    errors {
+        InvalidImageSize(size: &'static str) {
+            description("Invalid image size")
+            display("Size {} is expected but found another", size)
+        }
+    }
 }

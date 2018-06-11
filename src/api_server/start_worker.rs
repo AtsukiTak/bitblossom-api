@@ -1,11 +1,12 @@
 use std::{marker::PhantomData, sync::{Arc, Mutex}};
 use rocket::{State, response::status::{BadRequest, Created}};
 use rocket_contrib::Json;
-use image::{Rgba, RgbaImage};
+use image::{GenericImage, RgbaImage};
 
-use images::{Image, size::{Size, Size1500x1500}};
-use mosaic::{ArtContainer, Worker};
+use images::{Image, size::Size};
+use api_server::Worker;
 use error::Error;
+use super::{CurrentMosaicArtContainer, MosaicArtSize};
 
 const HOST: &str = "hoge";
 
@@ -17,11 +18,20 @@ const HOST: &str = "hoge";
 fn handler(
     json: Json<RawStartWorkerOption>,
     worker: State<Worker>,
-    art_container: State<Arc<Mutex<ArtContainer<Size1500x1500>>>>,
+    art_container: State<Arc<Mutex<CurrentMosaicArtContainer>>>,
 ) -> Result<Created<String>, BadRequest<()>> {
     let option = StartWorkerOption::from(json.into_inner()).map_err(|_| BadRequest(None))?;
+
+    debug!(
+        "Accept start_worker request. hashtags = {:?}",
+        option.hashtags
+    );
+
     let art = worker.inner().run(option.hashtags, option.origin_img);
+    info!("Run a new worker");
+
     let id = art_container.lock().unwrap().add(art);
+    info!("New mosaic art's id : {}", id);
 
     let created_url = format!("{}/{}", HOST, id);
     Ok(Created(created_url, Some(format!("{}", id))))
@@ -47,7 +57,7 @@ impl StartWorkerOption {
     }
 }
 
-type OriginImage = ProvidedImage<Size1500x1500>;
+type OriginImage = ProvidedImage<MosaicArtSize>;
 
 struct ProvidedImage<S> {
     image: RgbaImage,
@@ -58,8 +68,11 @@ impl<S: Size> ProvidedImage<S> {
     fn from_base64_str(base64_str: &str) -> Result<ProvidedImage<S>, Error> {
         let bytes = ::base64::decode(base64_str)?;
         let image = ::image::load_from_memory(&bytes)?;
+        if image.width() != S::WIDTH || image.height() != S::HEIGHT {
+            bail!(::error::ErrorKind::InvalidImageSize("1500 x 1500"));
+        }
         Ok(ProvidedImage {
-            image: image.thumbnail_exact(S::WIDTH, S::HEIGHT).to_rgba(),
+            image: image.to_rgba(),
             phantom: PhantomData,
         })
     }
@@ -67,14 +80,12 @@ impl<S: Size> ProvidedImage<S> {
 
 impl<S: Size> Image for ProvidedImage<S> {
     type Size = S;
-    type Image = RgbaImage;
-    type Pixel = Rgba<u8>;
 
-    fn image(&self) -> &Self::Image {
+    fn image(&self) -> &RgbaImage {
         &self.image
     }
 
-    fn image_mut(&mut self) -> &mut Self::Image {
+    fn image_mut(&mut self) -> &mut RgbaImage {
         &mut self.image
     }
 }
