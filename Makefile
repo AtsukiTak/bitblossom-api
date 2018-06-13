@@ -1,10 +1,8 @@
 check:
-	docker run --rm -v `pwd`:/home/app bitblossom cargo check
-	docker run --rm -v `pwd`:/home/app bitblossom cargo check --tests
-	docker run --rm -v `pwd`:/home/app bitblossom cargo check --examples
+	docker start bitblossom-check
 
 test:
-	docker run --rm -v `pwd`:/home/app bitblossom cargo test
+	docker start bitblossom-test
 
 dev:
 	docker run --rm -v `pwd`:/home/app bitblossom cargo run
@@ -14,3 +12,5 @@ stag:
 
 init:
 	docker build -t bitblossom .
+	docker run --name bitblossom-check -v `pwd`:/home/app bitblossom ["cargo", "check", "&&", "cargo", "check", "--tests", "&&", "cargo", "check", "--examples"]
+	docker run --name bitblossom-test -v `pwd`:/home/app bitblossom ["cargo", "test"]
