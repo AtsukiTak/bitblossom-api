@@ -1,16 +1,16 @@
 check:
-	rustup run nightly cargo check
-	rustup run nightly cargo check --tests
-	rustup run nightly cargo check --examples
+	docker run --rm -v `pwd`:/home/app bitblossom cargo check
+	docker run --rm -v `pwd`:/home/app bitblossom cargo check --tests
+	docker run --rm -v `pwd`:/home/app bitblossom cargo check --examples
 
 test:
-	rustup run nightly cargo test
+	docker run --rm -v `pwd`:/home/app bitblossom cargo test
 
-debug-build:
-	rustup run nightly cargo build
+dev:
+	docker run --rm -v `pwd`:/home/app bitblossom cargo run
 
-build:
-	rustup run nightly cargo build --release
+stag:
+	docker run --rm -v `pwd`:/home/app bitblossom cargo run
 
-clean:
-	cargo clean
+init:
+	docker build -t bitblossom .
