@@ -4,7 +4,7 @@ use rocket_contrib::Json;
 
 use images::Image;
 use mosaic::MosaicArtId;
-use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt};
+use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt, SimpleCors};
 
 // =================================
 // get mosaic art API
@@ -14,9 +14,9 @@ use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt};
 fn handler(
     id: u64,
     arts: State<Arc<Mutex<CurrentMosaicArtContainer>>>,
-) -> Result<Json<MosaicArtResponse>, NotFound<&'static str>> {
+) -> Result<SimpleCors<Json<MosaicArtResponse>>, NotFound<&'static str>> {
     match arts.inner().lock().unwrap().get(MosaicArtId(id)) {
-        Some(ref art) => Ok(Json(construct_response(art))),
+        Some(ref art) => Ok(SimpleCors::new(Json(construct_response(art)))),
         None => Err(NotFound("Nothing is also art...")),
     }
 }
