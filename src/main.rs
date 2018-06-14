@@ -3,7 +3,6 @@
 #![plugin(rocket_codegen)]
 
 extern crate tokio;
-extern crate tokio_core;
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;

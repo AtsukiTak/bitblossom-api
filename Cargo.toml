@@ -5,7 +5,6 @@ authors = ["AtsukiTak <takatomgoo@gmail.com>"]
 
 [dependencies]
 tokio = "0.1"
-tokio-core = "0.1"
 futures = "0.1"
 hyper = "0.12"
 hyper-tls = "0.2"
@@ -16,7 +15,6 @@ rocket_codegen = "0.3"
 rocket_contrib = "0.3"
 base64 = "0.9"
 
-# image = { git = "https://github.com/PistonDevelopers/image.git", branch = "master" }
 image = "0.19"
 
 serde = "1"
