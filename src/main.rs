@@ -20,6 +20,9 @@ extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 
+// #[macro_use]
+// extern crate diesel;
+
 #[macro_use]
 extern crate error_chain;
 extern crate rand;
@@ -32,11 +35,12 @@ pub mod images;
 pub mod insta;
 pub mod api_server;
 pub mod error;
+pub mod db;
 
 fn main() {
     env_logger::init();
     let insta_api_host = get_env("INSTA_API_SERVER_HOST");
-    api_server::run(insta_api_host);
+    api_server::run(insta_api_host, "TODOTODOTODO");
 }
 
 fn get_env(key: &str) -> String {

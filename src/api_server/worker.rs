@@ -3,6 +3,7 @@ use futures::{Future, Stream};
 
 use mosaic::{GrayscalePositionFinder, SharedMosaicArt};
 use insta::InstaFeeder;
+use db::DB;
 use images::{Image, size::{MultipleOf, Size, SmallerThan}};
 
 const REFRESH_INTERVAL: u64 = 3;
@@ -10,13 +11,15 @@ const REFRESH_INTERVAL: u64 = 3;
 pub struct Worker {
     block_users: Arc<Mutex<HashSet<String>>>,
     insta_feeder: Arc<InstaFeeder>,
+    db: DB,
 }
 
 impl Worker {
-    pub fn new(insta_api_server_host: String) -> Worker {
+    pub fn new(insta_api_server_host: String, db_url: &str) -> Worker {
         Worker {
             block_users: Arc::new(Mutex::new(HashSet::new())),
             insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host)),
+            db: DB::new(db_url),
         }
     }
 

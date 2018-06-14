@@ -12,12 +12,11 @@ type PieceImageSize = Size30x30;
 type CurrentSharedMosaicArt = ::mosaic::SharedMosaicArt<MosaicArtSize, PieceImageSize>;
 type CurrentMosaicArtContainer = ::mosaic::MosaicArtContainer<MosaicArtSize, PieceImageSize>;
 
-
-pub fn run(insta_api_host: String) {
+pub fn run(insta_api_host: String, db_url: &str) {
     let cors = ::rocket_cors::Cors::default();
     ::rocket::ignite()
         .manage(Arc::new(Mutex::new(CurrentMosaicArtContainer::new())))
-        .manage(Worker::new(insta_api_host))
+        .manage(Worker::new(insta_api_host, db_url))
         .mount("/", routes![start_worker::handler, get_art::handler])
         .attach(cors)
         .launch();
