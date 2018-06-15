@@ -12,12 +12,12 @@ pub trait Image {
 
     fn to_png_bytes(&self) -> Vec<u8> {
         let mut vec = Vec::new();
-        PNGEncoder::new(vec.as_mut_slice()).encode(
+        PNGEncoder::new(&mut vec).encode(
             self.image().deref(),
             Self::Size::WIDTH,
             Self::Size::HEIGHT,
             Rgba::<u8>::color_type(),
-        ).unwrap();
+        ).expect("Failed to encode into PNG");
         vec
     }
 
