@@ -15,11 +15,10 @@ print('Reading image file %s' % img_file_path)
 img = open(img_file_path, 'rb').read()
 encoded_img = base64.standard_b64encode(img)
 print('Encoded image into base64')
-# print(encoded_img.decode('utf-8'))
-# quit()
 
 payload = {'origin_img': encoded_img.decode('utf-8'), 'hashtags': [hashtag]}
 
 res = requests.post(url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
 
-print(res)
+print(res.status_code)
+print(res.text)
