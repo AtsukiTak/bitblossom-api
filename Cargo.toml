@@ -13,6 +13,7 @@ http = "0.1"
 rocket = "0.3"
 rocket_codegen = "0.3"
 rocket_contrib = "0.3"
+rocket_cors = "0.2"
 base64 = "0.9"
 
 image = "0.19"

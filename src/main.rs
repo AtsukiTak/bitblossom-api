@@ -10,6 +10,7 @@ extern crate http;
 
 extern crate rocket;
 extern crate rocket_contrib;
+extern crate rocket_cors;
 extern crate base64;
 
 extern crate image;
