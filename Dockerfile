@@ -4,4 +4,4 @@ RUN rustup install nightly-2018-06-01 && \
     rustup default nightly-2018-06-01
 COPY . /home/app
 RUN cargo build --release
-ENTRYPOINT ["/home/app/target/debug/bitblossom-api"]
+ENTRYPOINT ["/home/app/target/release/bitblossom-api"]
