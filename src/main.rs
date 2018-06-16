@@ -7,6 +7,7 @@ extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate http;
+extern crate percent_encoding;
 
 extern crate rocket;
 extern crate rocket_contrib;

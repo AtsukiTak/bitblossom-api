@@ -3,6 +3,7 @@ use futures::{stream, Future, Stream};
 use hyper::{Uri, client::{Client, HttpConnector}};
 use serde_json::error::Error as SerdeError;
 use serde::de::DeserializeOwned;
+use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 
 use insta::InstaPostId;
 use error::Error;
@@ -35,14 +36,23 @@ impl InstaApi {
             posts: Vec<InstaPartialPostResponse>,
         }
 
-        let url = Uri::from_str(
-            format!("http://{}/posts?hashtag={}", self.api_server_host, hashtag).as_str(),
-        ).unwrap();
+        let url = {
+            let encoded_hashtag =
+                percent_encode(hashtag.as_bytes(), DEFAULT_ENCODE_SET).to_string();
+            Uri::from_str(
+                format!(
+                    "http://{}/posts?hashtag={}",
+                    self.api_server_host, encoded_hashtag
+                ).as_str(),
+            ).unwrap()
+        };
 
         let client = self.client.clone();
 
         // Return first response successed to be parsed
-        first_ok(chained_fut_stream(move || call_api::<RawResponse>(&client, url.clone()))).map(|raw| raw.posts)
+        first_ok(chained_fut_stream(move || {
+            call_api::<RawResponse>(&client, url.clone())
+        })).map(|raw| raw.posts)
     }
 
     pub fn get_post_by_id(
@@ -56,7 +66,9 @@ impl InstaApi {
         let client = self.client.clone();
 
         // Return first response successed to be parsed
-        first_ok(chained_fut_stream(move || call_api::<InstaPostResponse>(&client, url.clone())))
+        first_ok(chained_fut_stream(move || {
+            call_api::<InstaPostResponse>(&client, url.clone())
+        }))
     }
 }
 
