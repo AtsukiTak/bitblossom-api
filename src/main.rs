@@ -40,7 +40,7 @@ pub mod db;
 fn main() {
     env_logger::init();
     let insta_api_host = get_env("INSTA_API_SERVER_HOST");
-    api_server::run(insta_api_host, "TODOTODOTODO");
+    api_server::run(insta_api_host);
 }
 
 fn get_env(key: &str) -> String {
