@@ -31,8 +31,8 @@ fn construct_response(art: &CurrentSharedMosaicArt) -> MosaicArtResponse {
             .map(|post| {
                 let post = post.clone();
                 InstaPostResponse {
-                    post_id: post.post_id.0.clone(),
-                    user_name: post.user_name.clone(),
+                    post_id: post.get_id_str().into(),
+                    user_name: post.get_username().into(),
                 }
             })
             .collect()

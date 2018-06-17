@@ -2,17 +2,17 @@
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
 
-extern crate tokio;
 extern crate futures;
+extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
-extern crate http;
 extern crate percent_encoding;
+extern crate tokio;
 
+extern crate base64;
 extern crate rocket;
 extern crate rocket_contrib;
 extern crate rocket_cors;
-extern crate base64;
 
 extern crate image;
 
@@ -21,8 +21,9 @@ extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 
-// #[macro_use]
-// extern crate diesel;
+#[macro_use(bson, doc)]
+extern crate bson;
+extern crate mongodb;
 
 #[macro_use]
 extern crate error_chain;
@@ -38,10 +39,20 @@ pub mod api_server;
 pub mod error;
 pub mod db;
 
+use self::db::MongodbInstaPost;
+
 fn main() {
     env_logger::init();
     let insta_api_host = get_env("INSTA_API_SERVER_HOST");
-    api_server::run(insta_api_host);
+    let mongodb_host = get_env("MONGODB_HOST");
+    let mongodb_port = get_env("MONGODB_PORT");
+    let mongodb_db = get_env("MONGODB_DB");
+    let mongodb = MongodbInstaPost::new(
+        mongodb_host.as_str(),
+        u16::from_str_radix(mongodb_port.as_str(), 10).unwrap(),
+        mongodb_db.as_str(),
+    );
+    api_server::run(insta_api_host, mongodb);
 }
 
 fn get_env(key: &str) -> String {

@@ -4,19 +4,22 @@ use futures::{Future, Stream};
 use mosaic::{GrayscalePositionFinder, SharedMosaicArt};
 use insta::InstaFeeder;
 use images::{Image, size::{MultipleOf, Size, SmallerThan}};
+use db::MongodbInstaPost;
 
 const REFRESH_INTERVAL: u64 = 3;
 
 pub struct Worker {
     block_users: Arc<Mutex<HashSet<String>>>,
     insta_feeder: Arc<InstaFeeder>,
+    db: Arc<MongodbInstaPost>,
 }
 
 impl Worker {
-    pub fn new(insta_api_server_host: String) -> Worker {
+    pub fn new(insta_api_server_host: String, db: MongodbInstaPost) -> Worker {
         Worker {
             block_users: Arc::new(Mutex::new(HashSet::new())),
             insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host)),
+            db: Arc::new(db),
         }
     }
 
@@ -36,6 +39,7 @@ impl Worker {
         let mosaic_art2 = mosaic_art.clone();
         let mosaic_art3 = mosaic_art.clone();
         let mut position_finder = GrayscalePositionFinder::new(origin_image);
+        let mongodb = self.db.clone();
 
         // The reason why I spawn a new thread is because `tokio::timer` does not work well
         // under multi-threaded environment.
@@ -49,7 +53,9 @@ impl Worker {
                     Duration::new(REFRESH_INTERVAL, 0),
                 )
                 .for_each(move |post| {
-                    let pos = position_finder.find_position(&post.image);
+                    mongodb.insert_one(&post);
+
+                    let pos = position_finder.find_position(post.get_image());
                     mosaic_art2.apply_post(post, pos);
                     Ok(())
                 })

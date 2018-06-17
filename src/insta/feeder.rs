@@ -47,18 +47,21 @@ impl InstaFeeder {
             .map(|posts| iter_ok::<_, Error>(posts))
             .flatten()
             .filter(move |p| {
-                let b = mosaic_art.has_post(&p.post_id);
-                debug!("Has post {} : {}", &p.post_id, b);
+                let b = mosaic_art.has_post(&p.id);
+                debug!("Has post {} : {}", &p.id, b);
                 !b
             })
-            .and_then(move |p| call_api(insta_api2.get_post_by_id(&p.post_id), req_interval2))
-            .filter(move |p| !block_users.lock().unwrap().contains(&p.user_name))
             .and_then(move |p| {
+                call_api(insta_api2.get_post_by_id(&p.id), req_interval2)
+                    .map(|post| (post, p.hashtag))
+            })
+            .filter(move |(p, _hashtag)| !block_users.lock().unwrap().contains(&p.user_name))
+            .and_then(move |(p, hashtag)| {
                 image_fetcher
                     .fetch_image::<SS>(p.image_url.as_str())
                     .into_future()
                     .and_then(|img_fut| img_fut)
-                    .map(move |img| InstaPost::new(p.post_id, p.user_name, img))
+                    .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
             })
     }
 }

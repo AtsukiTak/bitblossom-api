@@ -1,7 +1,7 @@
 use std::{intrinsics::copy_nonoverlapping, marker::PhantomData, ops::Deref};
 use image::{GenericImage, Pixel, Rgba, RgbaImage, png::PNGEncoder};
 
-use images::{Size, MultipleOf, SmallerThan};
+use images::{MultipleOf, Size, SmallerThan};
 
 pub trait Image {
     type Size: Size;
@@ -12,12 +12,14 @@ pub trait Image {
 
     fn to_png_bytes(&self) -> Vec<u8> {
         let mut vec = Vec::new();
-        PNGEncoder::new(&mut vec).encode(
-            self.image().deref(),
-            Self::Size::WIDTH,
-            Self::Size::HEIGHT,
-            Rgba::<u8>::color_type(),
-        ).expect("Failed to encode into PNG");
+        PNGEncoder::new(&mut vec)
+            .encode(
+                self.image().deref(),
+                Self::Size::WIDTH,
+                Self::Size::HEIGHT,
+                Rgba::<u8>::color_type(),
+            )
+            .expect("Failed to encode into PNG");
         vec
     }
 

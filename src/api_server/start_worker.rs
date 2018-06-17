@@ -8,7 +8,7 @@ use api_server::Worker;
 use error::Error;
 use super::{CurrentMosaicArtContainer, MosaicArtSize};
 
-const HOST: &str = "hoge";
+const HOST: &str = "";
 
 // =================================
 // start worker API

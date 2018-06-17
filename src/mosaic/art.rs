@@ -20,16 +20,6 @@ impl<S: Size> MosaicArtImage<S> {
             phantom: PhantomData,
         }
     }
-
-    pub fn with_base<I>(base_img: I) -> MosaicArtImage<S>
-    where
-        I: Image<Size = S>,
-    {
-        MosaicArtImage {
-            image: base_img.image().clone(),
-            phantom: PhantomData,
-        }
-    }
 }
 
 impl<S: Size> Image for MosaicArtImage<S> {
@@ -72,11 +62,11 @@ where
 
     pub fn apply_post(&mut self, post: InstaPost<SS>, pos: Position) {
         debug!("Apply image to {:?}", pos);
-        self.image.overpaint_by(&post.image, pos.clone());
-        if let Some(overrided_post_id) = self.position_map.insert(pos, post.post_id.clone()) {
+        self.image.overpaint_by(post.get_image(), pos.clone());
+        if let Some(overrided_post_id) = self.position_map.insert(pos, post.get_id().clone()) {
             self.piece_posts.remove(&overrided_post_id);
         }
-        self.piece_posts.insert(post.post_id.clone(), post);
+        self.piece_posts.insert(post.get_id().clone(), post);
     }
 
     pub fn get_image(&self) -> &MosaicArtImage<S> {

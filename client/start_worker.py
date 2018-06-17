@@ -20,6 +20,8 @@ print('Encoded image into base64')
 
 payload = {'origin_img': encoded_img.decode('utf-8'), 'hashtags': hashtags}
 
+print(json.dumps(payload))
+
 res = requests.post(url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
 
 print(res.status_code)

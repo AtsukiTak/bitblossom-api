@@ -2,7 +2,7 @@ use std::{marker::PhantomData, str::FromStr};
 use hyper::{Uri, client::{Client, HttpConnector}};
 use hyper_tls::HttpsConnector;
 use futures::{Future, Stream};
-use image::{DynamicImage, RgbaImage};
+use image::{DynamicImage, FilterType, RgbaImage};
 
 use images::{Image, size::Size};
 use error::Error;
@@ -24,17 +24,19 @@ impl ImageFetcher {
         url: &str,
     ) -> Result<impl Future<Item = FetchedImage<S>, Error = Error>, Error> {
         let url = Uri::from_str(url)?;
+        let url2 = url.clone();
         let f = self.client
             .get(url)
             .and_then(|res| res.into_body().concat2())
             .map_err(|e| Error::from(e))
-            .and_then(|data| Ok(FetchedImage::new(::image::load_from_memory(&data)?)));
+            .and_then(|data| Ok(FetchedImage::new(::image::load_from_memory(&data)?, url2)));
         Ok(f)
     }
 }
 
 pub struct FetchedImage<S> {
     image: RgbaImage,
+    uri: Uri,
     phantom: PhantomData<S>,
 }
 
@@ -51,12 +53,18 @@ impl<S: Size> Image for FetchedImage<S> {
 }
 
 impl<S: Size> FetchedImage<S> {
-    fn new(org: DynamicImage) -> FetchedImage<S> {
-        let cropped = org.thumbnail_exact(S::WIDTH, S::HEIGHT).to_rgba();
+    pub fn new(org: DynamicImage, uri: Uri) -> FetchedImage<S> {
+        let cropped = org.resize_exact(S::WIDTH, S::HEIGHT, FilterType::Lanczos3)
+            .to_rgba();
         FetchedImage {
             image: cropped,
+            uri: uri,
             phantom: PhantomData,
         }
+    }
+
+    pub fn get_source(&self) -> &Uri {
+        &self.uri
     }
 }
 
