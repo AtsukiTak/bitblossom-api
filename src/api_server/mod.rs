@@ -6,14 +6,14 @@ pub use self::worker::Worker;
 
 use std::sync::{Arc, Mutex};
 use images::size::{Size1500x1500, Size30x30};
-use db::MongodbInstaPost;
+use db::Mongodb;
 
 type MosaicArtSize = Size1500x1500;
 type PieceImageSize = Size30x30;
 type CurrentSharedMosaicArt = ::mosaic::SharedMosaicArt<MosaicArtSize, PieceImageSize>;
 type CurrentMosaicArtContainer = ::mosaic::MosaicArtContainer<MosaicArtSize, PieceImageSize>;
 
-pub fn run(insta_api_host: String, mongodb: MongodbInstaPost) {
+pub fn run(insta_api_host: String, mongodb: Mongodb) {
     let cors = ::rocket_cors::Cors::default();
     ::rocket::ignite()
         .manage(Arc::new(Mutex::new(CurrentMosaicArtContainer::new())))

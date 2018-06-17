@@ -4,18 +4,18 @@ use futures::{Future, Stream};
 use mosaic::{GrayscalePositionFinder, SharedMosaicArt};
 use insta::InstaFeeder;
 use images::{Image, size::{MultipleOf, Size, SmallerThan}};
-use db::MongodbInstaPost;
+use db::Mongodb;
 
 const REFRESH_INTERVAL: u64 = 3;
 
 pub struct Worker {
     block_users: Arc<Mutex<HashSet<String>>>,
     insta_feeder: Arc<InstaFeeder>,
-    db: Arc<MongodbInstaPost>,
+    db: Arc<Mongodb>,
 }
 
 impl Worker {
-    pub fn new(insta_api_server_host: String, db: MongodbInstaPost) -> Worker {
+    pub fn new(insta_api_server_host: String, db: Mongodb) -> Worker {
         Worker {
             block_users: Arc::new(Mutex::new(HashSet::new())),
             insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host)),
@@ -42,7 +42,7 @@ impl Worker {
         let mongodb = self.db.clone();
 
         // Initialize mosaic art
-        let mut init_posts = self.db.find_by_hashtags(hashtags.as_slice(), 1000);
+        let mut init_posts = self.db.find_posts_by_hashtags(hashtags.as_slice(), 1000);
         for post in init_posts.drain(..) {
             let pos = position_finder.find_position(post.get_image());
             mosaic_art.apply_post(post, pos);
@@ -60,7 +60,7 @@ impl Worker {
                     Duration::new(REFRESH_INTERVAL, 0),
                 )
                 .for_each(move |post| {
-                    mongodb.insert_one(&post);
+                    mongodb.insert_one_post(&post);
 
                     let pos = position_finder.find_position(post.get_image());
                     mosaic_art2.apply_post(post, pos);

@@ -1,27 +1,30 @@
 use std::{str::FromStr, time::{SystemTime, UNIX_EPOCH}};
 use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
               db::ThreadedDatabase};
-use bson::{Document, spec::BinarySubtype, Bson};
+use bson::{Bson, Document, spec::BinarySubtype};
 use hyper::Uri;
 
 use images::{FetchedImage, Image, Size};
 use insta::{InstaPost, InstaPostId};
 
-pub struct MongodbInstaPost {
-    coll: Collection,
+pub struct Mongodb {
+    insta_post: Collection,
 }
 
-impl MongodbInstaPost {
-    pub fn new(host: &str, port: u16, db: &str) -> MongodbInstaPost {
-        debug!("Create new mongodb client with host({}), port({}), db({})", host, port, db);
+impl Mongodb {
+    pub fn new(host: &str, port: u16, db: &str) -> Mongodb {
+        debug!(
+            "Create new mongodb client with host({}), port({}), db({})",
+            host, port, db
+        );
         let client = Client::connect(host, port).expect("Fail to create mongodb client");
         let db = client.db(db);
-        MongodbInstaPost {
-            coll: db.collection("insta_post"),
+        Mongodb {
+            insta_post: db.collection("insta_post"),
         }
     }
 
-    pub fn insert_one<S: Size>(&self, post: &InstaPost<S>) {
+    pub fn insert_one_post<S: Size>(&self, post: &InstaPost<S>) {
         debug!("Insert new insta post into mongodb");
         let doc = doc! {
             "id": post.get_id_str(),
@@ -33,25 +36,31 @@ impl MongodbInstaPost {
             "hashtag": post.get_hashtag(),
             "inserted_time": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
-        self.coll
+        self.insta_post
             .insert_one(doc, None)
             .expect("Should delegate this error");
     }
 
-    pub fn find_by_hashtags<S: Size>(&self, hashtags: &[String], limit: i64) -> Vec<InstaPost<S>> {
-        debug!("find one {:?}", self.coll.find_one(None, None));
-        let hashtags_filter: Vec<Bson> = hashtags.iter().map(|h| bson!(doc!{ "hashtag": h })).collect();
+    pub fn find_posts_by_hashtags<S: Size>(
+        &self,
+        hashtags: &[String],
+        limit: i64,
+    ) -> Vec<InstaPost<S>> {
+        debug!("Find posts by hashtags : {:?}", hashtags);
+        let hashtags_filter: Vec<Bson> = hashtags
+            .iter()
+            .map(|h| bson!(doc!{ "hashtag": h }))
+            .collect();
         let filter = doc! {
             "$or": hashtags_filter,
         };
-        debug!("Search mongodb with filter : {:?}", filter);
         let option = {
             let mut op = FindOptions::new();
             op.limit = Some(limit);
             op.sort = Some(doc!{"inserted_time": -1});
             op
         };
-        self.coll
+        self.insta_post
             .find(Some(filter), Some(option))
             .expect("Fail to execute find operation")
             .map(|res| doc_2_post(res.expect("Invalid document")))

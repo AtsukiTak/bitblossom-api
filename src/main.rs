@@ -39,7 +39,7 @@ pub mod api_server;
 pub mod error;
 pub mod db;
 
-use self::db::MongodbInstaPost;
+use self::db::Mongodb;
 
 fn main() {
     env_logger::init();
@@ -47,7 +47,7 @@ fn main() {
     let mongodb_host = get_env_str("MONGODB_HOST");
     let mongodb_port = get_env_u16("MONGODB_PORT");
     let mongodb_db = get_env_str("MONGODB_DB");
-    let mongodb = MongodbInstaPost::new(mongodb_host.as_str(), mongodb_port, mongodb_db.as_str());
+    let mongodb = Mongodb::new(mongodb_host.as_str(), mongodb_port, mongodb_db.as_str());
     api_server::run(insta_api_host, mongodb);
 }
 
