@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::{SystemTime, UNIX_EPOCH}};
 use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
               db::ThreadedDatabase};
-use bson::{Document, spec::BinarySubtype};
+use bson::{Document, spec::BinarySubtype, Bson};
 use hyper::Uri;
 
 use images::{FetchedImage, Image, Size};
@@ -36,9 +36,10 @@ impl MongodbInstaPost {
             .expect("Should delegate this error");
     }
 
-    pub fn find_by_hashtag<S: Size>(&self, hashtag: &str, limit: i64) -> Vec<InstaPost<S>> {
+    pub fn find_by_hashtags<S: Size>(&self, hashtags: &[String], limit: i64) -> Vec<InstaPost<S>> {
+        let hashtags_filter: Vec<Bson> = hashtags.iter().map(|h| bson!(doc!{ "hashtag": h })).collect();
         let filter = doc! {
-            "hashtag": hashtag,
+            "$or": hashtags_filter,
         };
         let option = {
             let mut op = FindOptions::new();

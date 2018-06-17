@@ -41,6 +41,13 @@ impl Worker {
         let mut position_finder = GrayscalePositionFinder::new(origin_image);
         let mongodb = self.db.clone();
 
+        // Initialize mosaic art
+        let mut init_posts = self.db.find_by_hashtags(hashtags.as_slice(), 1000);
+        for post in init_posts.drain(..) {
+            let pos = position_finder.find_position(post.get_image());
+            mosaic_art.apply_post(post, pos);
+        }
+
         // The reason why I spawn a new thread is because `tokio::timer` does not work well
         // under multi-threaded environment.
         // https://github.com/tokio-rs/tokio/issues/305
