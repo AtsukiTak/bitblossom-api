@@ -13,10 +13,11 @@ pub struct MongodbInstaPost {
 
 impl MongodbInstaPost {
     pub fn new(host: &str, port: u16, db: &str) -> MongodbInstaPost {
-        let client = Client::connect(host, port).expect("Fail to connect mongodb");
+        debug!("Create new mongodb client with host({}), port({}), db({})", host, port, db);
+        let client = Client::connect(host, port).expect("Fail to create mongodb client");
         let db = client.db(db);
         MongodbInstaPost {
-            coll: db.collection("INSTA_POST"),
+            coll: db.collection("insta_post"),
         }
     }
 
@@ -38,6 +39,7 @@ impl MongodbInstaPost {
     }
 
     pub fn find_by_hashtags<S: Size>(&self, hashtags: &[String], limit: i64) -> Vec<InstaPost<S>> {
+        debug!("find one {:?}", self.coll.find_one(None, None));
         let hashtags_filter: Vec<Bson> = hashtags.iter().map(|h| bson!(doc!{ "hashtag": h })).collect();
         let filter = doc! {
             "$or": hashtags_filter,
@@ -51,7 +53,7 @@ impl MongodbInstaPost {
         };
         self.coll
             .find(Some(filter), Some(option))
-            .expect("Fail to find collection")
+            .expect("Fail to execute find operation")
             .map(|res| doc_2_post(res.expect("Invalid document")))
             .collect()
     }
