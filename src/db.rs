@@ -21,6 +21,7 @@ impl MongodbInstaPost {
     }
 
     pub fn insert_one<S: Size>(&self, post: &InstaPost<S>) {
+        debug!("Insert new insta post into mongodb");
         let doc = doc! {
             "id": post.get_id_str(),
             "username": post.get_username(),
@@ -41,6 +42,7 @@ impl MongodbInstaPost {
         let filter = doc! {
             "$or": hashtags_filter,
         };
+        debug!("Search mongodb with filter : {:?}", filter);
         let option = {
             let mut op = FindOptions::new();
             op.limit = Some(limit);
@@ -49,8 +51,8 @@ impl MongodbInstaPost {
         };
         self.coll
             .find(Some(filter), Some(option))
-            .unwrap()
-            .map(|res| doc_2_post(res.unwrap()))
+            .expect("Fail to find collection")
+            .map(|res| doc_2_post(res.expect("Invalid document")))
             .collect()
     }
 }
