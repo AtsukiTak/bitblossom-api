@@ -43,18 +43,19 @@ use self::db::MongodbInstaPost;
 
 fn main() {
     env_logger::init();
-    let insta_api_host = get_env("INSTA_API_SERVER_HOST");
-    let mongodb_host = get_env("MONGODB_HOST");
-    let mongodb_port = get_env("MONGODB_PORT");
-    let mongodb_db = get_env("MONGODB_DB");
-    let mongodb = MongodbInstaPost::new(
-        mongodb_host.as_str(),
-        u16::from_str_radix(mongodb_port.as_str(), 10).unwrap(),
-        mongodb_db.as_str(),
-    );
+    let insta_api_host = get_env_str("INSTA_API_SERVER_HOST");
+    let mongodb_host = get_env_str("MONGODB_HOST");
+    let mongodb_port = get_env_u16("MONGODB_PORT");
+    let mongodb_db = get_env_str("MONGODB_DB");
+    let mongodb = MongodbInstaPost::new(mongodb_host.as_str(), mongodb_port, mongodb_db.as_str());
     api_server::run(insta_api_host, mongodb);
 }
 
-fn get_env(key: &str) -> String {
+fn get_env_str(key: &str) -> String {
     ::std::env::var(key).expect(format!("{} env var is not found", key).as_str())
+}
+
+fn get_env_u16(key: &str) -> u16 {
+    let s = get_env_str(key);
+    u16::from_str_radix(s.as_str(), 10).expect(format!("{} is not valid number", s).as_str())
 }
