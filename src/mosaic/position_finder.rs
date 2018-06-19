@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::HashSet, marker::PhantomData};
 
-use images::{Image, Position, size::{MultipleOf, Size}};
+use images::{SizedImage, Position, size::{MultipleOf, SmallerThan, Size}};
 
 pub struct GrayscalePositionFinder<S, SS> {
     grayscales: Vec<(Position, f64)>,
@@ -11,15 +11,12 @@ pub struct GrayscalePositionFinder<S, SS> {
 impl<S, SS> GrayscalePositionFinder<S, SS>
 where
     S: MultipleOf<SS>,
-    SS: Size,
+    SS: Size + SmallerThan<S>,
 {
-    pub fn new<I>(origin_image: I) -> GrayscalePositionFinder<S, SS>
-    where
-        I: Image<Size = S>,
-    {
+    pub fn new(origin_image: SizedImage<S>) -> GrayscalePositionFinder<S, SS> {
         let list = origin_image
             .split_into_pieces()
-            .map(|piece| (piece.position(), piece.mean_grayscale()))
+            .map(|piece| (piece.position(), piece.image.mean_grayscale()))
             .collect();
         GrayscalePositionFinder {
             grayscales: list,
@@ -28,9 +25,7 @@ where
         }
     }
 
-    pub fn find_position<I>(&mut self, piece: &I) -> Position
-    where
-        I: Image<Size = SS>,
+    pub fn find_position(&mut self, piece: &SizedImage<SS>) -> Position
     {
         const ADDITION_TO_EMPTY_POS: f64 = 30f64;
 

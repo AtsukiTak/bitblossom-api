@@ -1,12 +1,11 @@
-use std::{marker::PhantomData, sync::{Arc, Mutex}};
+use std::sync::{Arc, Mutex};
 use rocket::{State, response::status::{BadRequest, Created}};
 use rocket_contrib::Json;
-use image::{GenericImage, RgbaImage};
 
-use images::{Image, size::Size};
+use images::{Size, SizedImage};
 use api_server::Worker;
 use error::Error;
-use super::{CurrentMosaicArtContainer, MosaicArtSize};
+use super::CurrentMosaicArtContainer;
 
 const HOST: &str = "";
 
@@ -43,49 +42,21 @@ struct RawStartWorkerOption {
     hashtags: Vec<String>,
 }
 
-struct StartWorkerOption {
-    origin_img: OriginImage,
+struct StartWorkerOption<S> {
+    origin_img: SizedImage<S>,
     hashtags: Vec<String>,
 }
 
-impl StartWorkerOption {
-    fn from(raw: RawStartWorkerOption) -> Result<StartWorkerOption, Error> {
+impl<S: Size> StartWorkerOption<S> {
+    fn from(raw: RawStartWorkerOption) -> Result<StartWorkerOption<S>, Error> {
         Ok(StartWorkerOption {
-            origin_img: OriginImage::from_base64_str(raw.origin_img.as_str())?,
+            origin_img: encode_image(raw.origin_img.as_str())?,
             hashtags: raw.hashtags,
         })
     }
 }
 
-type OriginImage = ProvidedImage<MosaicArtSize>;
-
-struct ProvidedImage<S> {
-    image: RgbaImage,
-    phantom: PhantomData<S>,
-}
-
-impl<S: Size> ProvidedImage<S> {
-    fn from_base64_str(base64_str: &str) -> Result<ProvidedImage<S>, Error> {
-        let bytes = ::base64::decode(base64_str)?;
-        let image = ::image::load_from_memory(&bytes)?;
-        if image.width() != S::WIDTH || image.height() != S::HEIGHT {
-            bail!(::error::ErrorKind::InvalidImageSize("1500 x 1500"));
-        }
-        Ok(ProvidedImage {
-            image: image.to_rgba(),
-            phantom: PhantomData,
-        })
-    }
-}
-
-impl<S: Size> Image for ProvidedImage<S> {
-    type Size = S;
-
-    fn image(&self) -> &RgbaImage {
-        &self.image
-    }
-
-    fn image_mut(&mut self) -> &mut RgbaImage {
-        &mut self.image
-    }
+fn encode_image<S: Size>(base64_str: &str) -> Result<SizedImage<S>, Error> {
+    let bytes = ::base64::decode(base64_str)?;
+    SizedImage::from_raw_bytes(&bytes)
 }

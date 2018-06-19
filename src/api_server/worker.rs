@@ -3,7 +3,7 @@ use futures::{Future, Stream};
 
 use mosaic::{GrayscalePositionFinder, SharedMosaicArt};
 use insta::InstaFeeder;
-use images::{Image, size::{MultipleOf, Size, SmallerThan}};
+use images::{SizedImage, size::{MultipleOf, Size, SmallerThan}};
 use db::Mongodb;
 
 const REFRESH_INTERVAL: u64 = 3;
@@ -27,11 +27,14 @@ impl Worker {
         self.block_users.lock().unwrap().insert(user_name);
     }
 
-    pub fn run<S, SS, I>(&self, hashtags: Vec<String>, origin_image: I) -> SharedMosaicArt<S, SS>
+    pub fn run<S, SS>(
+        &self,
+        hashtags: Vec<String>,
+        origin_image: SizedImage<S>,
+    ) -> SharedMosaicArt<S, SS>
     where
         S: Size + MultipleOf<SS>,
         SS: Size + SmallerThan<S>,
-        I: Image<Size = S>,
     {
         let insta_feeder = self.insta_feeder.clone();
         let block_users = self.block_users.clone();

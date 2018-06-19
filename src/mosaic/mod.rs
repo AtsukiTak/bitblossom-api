@@ -4,4 +4,4 @@ pub mod art;
 
 pub use self::position_finder::GrayscalePositionFinder;
 pub use self::container::{MosaicArtContainer, MosaicArtId};
-pub use self::art::{MosaicArt, MosaicArtImage, SharedMosaicArt};
+pub use self::art::{MosaicArt, SharedMosaicArt};

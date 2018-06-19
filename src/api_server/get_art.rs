@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex};
 use rocket::{State, response::status::NotFound};
 use rocket_contrib::Json;
 
-use images::Image;
 use mosaic::MosaicArtId;
 use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt};
 

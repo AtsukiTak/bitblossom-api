@@ -13,9 +13,9 @@ error_chain! {
     }
 
     errors {
-        InvalidImageSize(size: &'static str) {
+        InvalidImageSize(expected_w: u32, expected_h: u32) {
             description("Invalid image size")
-            display("Size {} is expected but found another", size)
+            display("Size {} x {} is expected but found another", expected_w, expected_h)
         }
     }
 }

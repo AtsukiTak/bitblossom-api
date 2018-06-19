@@ -1,42 +1,11 @@
-use std::{collections::hash_map::{HashMap, Values}, marker::PhantomData, sync::{Arc, Mutex}};
-use image::{Rgba, RgbaImage};
+use std::{collections::hash_map::{HashMap, Values}, sync::{Arc, Mutex}};
 
-use images::{Image, Position, size::{MultipleOf, Size, SmallerThan}};
+use images::{Position, SizedImage, size::{MultipleOf, Size, SmallerThan}};
 use insta::{InstaPost, InstaPostId};
 
 #[derive(Debug)]
-pub struct MosaicArtImage<S> {
-    image: RgbaImage,
-    phantom: PhantomData<S>,
-}
-
-impl<S: Size> MosaicArtImage<S> {
-    /// Create a clear MosaicArt.
-    pub fn new() -> MosaicArtImage<S> {
-        const CLEAR_PIXEL: Rgba<u8> = Rgba { data: [0, 0, 0, 0] };
-        let clear_img = RgbaImage::from_pixel(S::WIDTH, S::HEIGHT, CLEAR_PIXEL);
-        MosaicArtImage {
-            image: clear_img,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<S: Size> Image for MosaicArtImage<S> {
-    type Size = S;
-
-    fn image(&self) -> &RgbaImage {
-        &self.image
-    }
-
-    fn image_mut(&mut self) -> &mut RgbaImage {
-        &mut self.image
-    }
-}
-
-#[derive(Debug)]
 pub struct MosaicArt<S, SS> {
-    image: MosaicArtImage<S>,
+    image: SizedImage<S>,
     piece_posts: HashMap<InstaPostId, InstaPost<SS>>,
     position_map: HashMap<Position, InstaPostId>,
     hashtags: Vec<String>,
@@ -49,7 +18,7 @@ where
 {
     pub fn new(hashtags: Vec<String>) -> MosaicArt<S, SS> {
         MosaicArt {
-            image: MosaicArtImage::new(),
+            image: SizedImage::clear_image(),
             piece_posts: HashMap::new(),
             position_map: HashMap::new(),
             hashtags: hashtags,
@@ -69,7 +38,7 @@ where
         self.piece_posts.insert(post.get_id().clone(), post);
     }
 
-    pub fn get_image(&self) -> &MosaicArtImage<S> {
+    pub fn get_image(&self) -> &SizedImage<S> {
         &self.image
     }
 
@@ -104,7 +73,7 @@ where
 
     pub fn borrow_image<F, T>(&self, f: F) -> T
     where
-        F: FnOnce(&MosaicArtImage<S>) -> T,
+        F: FnOnce(&SizedImage<S>) -> T,
     {
         f(self.0.lock().unwrap().get_image())
     }

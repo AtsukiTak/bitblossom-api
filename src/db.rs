@@ -1,10 +1,9 @@
-use std::{str::FromStr, time::{SystemTime, UNIX_EPOCH}};
+use std::time::{SystemTime, UNIX_EPOCH};
 use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
               db::ThreadedDatabase};
 use bson::{Bson, Document, spec::BinarySubtype};
-use hyper::Uri;
 
-use images::{FetchedImage, Image, Size};
+use images::{Size, SizedImage};
 use insta::{InstaPost, InstaPostId};
 
 pub struct Mongodb {
@@ -29,10 +28,7 @@ impl Mongodb {
         let doc = doc! {
             "id": post.get_id_str(),
             "username": post.get_username(),
-            "image": {
-                "url": post.get_image_source_str(),
-                "binary": (BinarySubtype::Generic, post.get_image().to_png_bytes()),
-            },
+            "image": (BinarySubtype::Generic, post.get_image().to_png_bytes()),
             "hashtag": post.get_hashtag(),
             "inserted_time": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
@@ -70,13 +66,11 @@ impl Mongodb {
 
 fn doc_2_post<S: Size>(doc: Document) -> InstaPost<S> {
     let image = {
-        let url_str = doc.get_document("image").unwrap().get_str("url").unwrap();
         let binary = doc.get_document("image")
             .unwrap()
             .get_binary_generic("binary")
             .unwrap();
-        let img = ::image::load_from_memory(binary.as_slice()).unwrap();
-        FetchedImage::new(img, Uri::from_str(url_str).unwrap())
+        SizedImage::from_raw_bytes(binary).unwrap()
     };
     let id = InstaPostId(doc.get_str("id").unwrap().into());
     let username = doc.get_str("username").unwrap().into();
