@@ -11,15 +11,15 @@ const REFRESH_INTERVAL: u64 = 3;
 pub struct Worker {
     block_users: Arc<Mutex<HashSet<String>>>,
     insta_feeder: Arc<InstaFeeder>,
-    db: Arc<Mongodb>,
+    db: Mongodb,
 }
 
 impl Worker {
     pub fn new(insta_api_server_host: String, db: Mongodb) -> Worker {
         Worker {
             block_users: Arc::new(Mutex::new(HashSet::new())),
-            insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host)),
-            db: Arc::new(db),
+            insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host, db.clone())),
+            db: db,
         }
     }
 
@@ -40,7 +40,6 @@ impl Worker {
         let block_users = self.block_users.clone();
         let mosaic_art = SharedMosaicArt::new(hashtags.clone());
         let mosaic_art2 = mosaic_art.clone();
-        let mosaic_art3 = mosaic_art.clone();
         let mut position_finder = GrayscalePositionFinder::new(origin_image);
         let mongodb = self.db.clone();
 
@@ -58,7 +57,6 @@ impl Worker {
             let f = insta_feeder
                 .run(
                     hashtags,
-                    mosaic_art,
                     block_users,
                     Duration::new(REFRESH_INTERVAL, 0),
                 )
@@ -66,7 +64,7 @@ impl Worker {
                     mongodb.insert_one_post(&post);
 
                     let pos = position_finder.find_position(post.get_image());
-                    mosaic_art2.apply_post(post, pos);
+                    mosaic_art.apply_post(post, pos);
                     Ok(())
                 })
                 .map_err(|e| error!("{:?}", e));
@@ -74,6 +72,6 @@ impl Worker {
             ::tokio::run(f)
         });
 
-        mosaic_art3
+        mosaic_art2
     }
 }

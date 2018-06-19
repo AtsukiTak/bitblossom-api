@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{sync::Arc, time::{SystemTime, UNIX_EPOCH}};
 use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
               db::ThreadedDatabase};
 use bson::{Bson, Document, spec::BinarySubtype};
@@ -6,8 +6,9 @@ use bson::{Bson, Document, spec::BinarySubtype};
 use images::{Size, SizedImage};
 use insta::{InstaPost, InstaPostId};
 
+#[derive(Clone)]
 pub struct Mongodb {
-    insta_post: Collection,
+    insta_post: Arc<Collection>,
 }
 
 impl Mongodb {
@@ -19,7 +20,7 @@ impl Mongodb {
         let client = Client::connect(host, port).expect("Fail to create mongodb client");
         let db = client.db(db);
         Mongodb {
-            insta_post: db.collection("insta_post"),
+            insta_post: Arc::new(db.collection("insta_post")),
         }
     }
 
@@ -35,6 +36,11 @@ impl Mongodb {
         self.insta_post
             .insert_one(doc, None)
             .expect("Should delegate this error");
+    }
+
+    pub fn contains_post(&self, post_id: &InstaPostId) -> bool {
+        let filter = doc! { "id": post_id.as_str() };
+        self.insta_post.find_one(Some(filter), None).is_ok()
     }
 
     pub fn find_posts_by_hashtags<S: Size>(

@@ -10,6 +10,12 @@ use images::{SizedImage, Size};
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
 pub struct InstaPostId(pub String);
 
+impl InstaPostId {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl ::std::fmt::Display for InstaPostId {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
         write!(f, "{}", self.0)
