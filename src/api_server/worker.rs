@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::{Arc, Mutex}, time::Duration};
+use std::{sync::Arc, time::Duration};
 use futures::{Future, Stream};
 
 use mosaic::{GrayscalePositionFinder, SharedMosaicArt};
@@ -9,7 +9,6 @@ use db::Mongodb;
 const REFRESH_INTERVAL: u64 = 3;
 
 pub struct Worker {
-    block_users: Arc<Mutex<HashSet<String>>>,
     insta_feeder: Arc<InstaFeeder>,
     db: Mongodb,
 }
@@ -17,14 +16,9 @@ pub struct Worker {
 impl Worker {
     pub fn new(insta_api_server_host: String, db: Mongodb) -> Worker {
         Worker {
-            block_users: Arc::new(Mutex::new(HashSet::new())),
             insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host, db.clone())),
             db: db,
         }
-    }
-
-    pub fn add_block_user(&self, user_name: String) {
-        self.block_users.lock().unwrap().insert(user_name);
     }
 
     pub fn run<S, SS>(
@@ -37,7 +31,6 @@ impl Worker {
         SS: Size + SmallerThan<S>,
     {
         let insta_feeder = self.insta_feeder.clone();
-        let block_users = self.block_users.clone();
         let mosaic_art = SharedMosaicArt::new(hashtags.clone());
         let mosaic_art2 = mosaic_art.clone();
         let mut position_finder = GrayscalePositionFinder::new(origin_image);
@@ -55,11 +48,7 @@ impl Worker {
         // https://github.com/tokio-rs/tokio/issues/305
         ::std::thread::spawn(move || {
             let f = insta_feeder
-                .run(
-                    hashtags,
-                    block_users,
-                    Duration::new(REFRESH_INTERVAL, 0),
-                )
+                .run(hashtags, Duration::new(REFRESH_INTERVAL, 0))
                 .for_each(move |post| {
                     mongodb.insert_one_post(&post);
 

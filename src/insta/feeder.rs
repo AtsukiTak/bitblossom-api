@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::{Arc, Mutex}, time::{Duration, Instant}};
+use std::{sync::Arc, time::{Duration, Instant}};
 use futures::{Future, IntoFuture, Stream, stream::{iter_ok, repeat}};
 use tokio::timer::Delay;
 
@@ -25,7 +25,6 @@ impl InstaFeeder {
     pub fn run<S, SS>(
         &self,
         hashtags: Vec<String>,
-        block_users: Arc<Mutex<HashSet<String>>>,
         req_interval: Duration,
     ) -> impl Stream<Item = InstaPost<SS>, Error = Error>
     where
@@ -57,7 +56,6 @@ impl InstaFeeder {
                 call_api(insta_api2.get_post_by_id(&p.id), req_interval2)
                     .map(|post| (post, p.hashtag))
             })
-            .filter(move |(p, _hashtag)| !block_users.lock().unwrap().contains(&p.user_name))
             .and_then(move |(p, hashtag)| {
                 image_fetcher
                     .fetch_image::<SS>(p.image_url.as_str())
