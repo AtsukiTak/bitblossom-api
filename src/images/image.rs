@@ -77,7 +77,9 @@ impl<S: Size> SizedImage<S> {
     }
 
     pub fn mean_alpha(&self) -> f64 {
-        unimplemented!();
+        let alpha_iter = self.image.chunks(4).map(|chunk| chunk[3]);
+        let sum_alpha = alpha_iter.fold(0u64, |sum, a| sum + (a as u64));
+        sum_alpha as f64 / (self.image.len() / 4) as f64
     }
 
     /// Fast crop function
@@ -166,7 +168,7 @@ where
         }
         let x = SS::WIDTH * (self.next_index % num_x);
         let y = SS::HEIGHT * (self.next_index / num_y);
-        let pos = Position { x: x, y: y};
+        let pos = Position { x: x, y: y };
         let cropped = self.source.crop(pos.clone());
         self.next_index += 1;
         Some(ImagePiece {
@@ -181,36 +183,34 @@ mod tests {
     use super::*;
     use images::size::{Size1500x1500, Size30x30};
 
-    struct TestImg<S> {
-        image: RgbaImage,
-        size: PhantomData<S>,
+    fn blank_1500x1500_img() -> SizedImage<Size1500x1500> {
+        SizedImage::new(RgbaImage::new(1500, 1500)).unwrap()
     }
 
-    impl<S: Size> TestImg<S> {
-        pub fn new() -> TestImg<S> {
-            TestImg {
-                image: RgbaImage::new(S::WIDTH, S::HEIGHT),
-                size: PhantomData,
-            }
-        }
-    }
-
-    impl<S: Size> Image for TestImg<S> {
-        type Size = S;
-        fn image(&self) -> &RgbaImage {
-            &self.image
-        }
-        fn image_mut(&mut self) -> &mut RgbaImage {
-            &mut self.image
-        }
+    fn white_30x30_img() -> SizedImage<Size30x30> {
+        let white_pixel = Rgba {
+            data: [255, 255, 255, 255],
+        };
+        let img = RgbaImage::from_pixel(30, 30, white_pixel);
+        SizedImage::new(img).unwrap()
     }
 
     #[test]
     fn crop_big_image() {
-        let blank_img = TestImg::<Size1500x1500>::new();
-        for img in blank_img.split_into_pieces::<Size30x30>() {
-            assert_eq!(img.image().width(), 30);
-            assert_eq!(img.image().height(), 30);
+        let blank_img = blank_1500x1500_img();
+        for piece in blank_img.split_into_pieces::<Size30x30>() {
+            assert_eq!(piece.image.image.width(), 30);
+            assert_eq!(piece.image.image.height(), 30);
         }
+    }
+
+    #[test]
+    fn mean_alpha() {
+        let mut blank_img = blank_1500x1500_img();
+        assert_eq!(blank_img.mean_alpha(), 0f64);
+
+        let white_img = white_30x30_img();
+        blank_img.overpaint_by(&white_img, Position { x: 0, y: 0 });
+        assert_eq!(blank_img.mean_alpha(), 255f64 / (50f64 * 50f64));
     }
 }
