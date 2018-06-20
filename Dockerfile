@@ -1,6 +1,7 @@
 FROM rust:1.26.2 as builder
 WORKDIR /home/app
-ARG DEBUG=0 TAG=master
+ARG DEBUG=0
+ARG TAG=master
 RUN rustup install nightly-2018-06-16 && \
     rustup default nightly-2018-06-16 && \
     git clone -b ${TAG} https://github.com/AtsukiTak/bluumm-api /home/app
