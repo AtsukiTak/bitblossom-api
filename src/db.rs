@@ -27,10 +27,10 @@ impl Mongodb {
     pub fn insert_one_post<S: Size>(&self, post: &InstaPost<S>) {
         debug!("Insert new insta post into mongodb");
         let doc = doc! {
-            "id": post.get_id_str(),
-            "username": post.get_username(),
-            "image": (BinarySubtype::Generic, post.get_image().to_png_bytes()),
-            "hashtag": post.get_hashtag(),
+            "id": post.post_id.as_str(),
+            "username": post.user_name.as_str(),
+            "image": (BinarySubtype::Generic, post.image.to_png_bytes()),
+            "hashtag": post.hashtag.as_str(),
             "inserted_time": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
         self.insta_post

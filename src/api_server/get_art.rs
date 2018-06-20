@@ -22,21 +22,19 @@ fn handler(
 
 fn construct_response(art: &CurrentSharedMosaicArt) -> MosaicArtResponse {
     let mosaic_art = {
-        let png_img = art.borrow_image(|img| img.to_png_bytes());
+        let png_img = art.get_image().to_png_bytes();
         ::base64::encode(png_img.as_slice())
     };
-    let piece_posts = art.borrow_piece_posts(|piece_posts| {
-        piece_posts
-            .map(|post| {
-                let post = post.clone();
-                InstaPostResponse {
-                    post_id: post.get_id_str().into(),
-                    user_name: post.get_username().into(),
-                }
-            })
-            .collect()
-    });
-    let hashtags = art.borrow_hashtags(|hashtags| hashtags.to_vec());
+    let piece_posts = art.get_piece_posts()
+        .iter()
+        .map(|post| {
+            InstaPostResponse {
+                post_id: post.post_id.0.clone(),
+                user_name: post.user_name.clone(),
+            }
+        })
+        .collect();
+    let hashtags = art.get_hashtags();
     MosaicArtResponse {
         mosaic_art: mosaic_art,
         piece_posts: piece_posts,

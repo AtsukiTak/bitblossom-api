@@ -76,6 +76,10 @@ impl<S: Size> SizedImage<S> {
         sum_gray / (img.len() as f64)
     }
 
+    pub fn mean_alpha(&self) -> f64 {
+        unimplemented!();
+    }
+
     /// Fast crop function
     pub fn crop<SS>(&self, pos: Position) -> SizedImage<SS>
     where
@@ -137,13 +141,7 @@ pub struct Position {
 
 pub struct ImagePiece<SS> {
     pub image: SizedImage<SS>,
-    position: Position,
-}
-
-impl<SS> ImagePiece<SS> {
-    pub fn position(&self) -> Position {
-        self.position
-    }
+    pub position: Position,
 }
 
 pub struct ImagePieceIter<'a, S: 'a, SS> {
