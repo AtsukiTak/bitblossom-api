@@ -27,11 +27,9 @@ fn construct_response(art: &CurrentSharedMosaicArt) -> MosaicArtResponse {
     };
     let piece_posts = art.get_piece_posts()
         .iter()
-        .map(|post| {
-            InstaPostResponse {
-                post_id: post.post_id.0.clone(),
-                user_name: post.user_name.clone(),
-            }
+        .map(|post| InstaPostResponse {
+            post_id: post.post_id.0.clone(),
+            user_name: post.user_name.clone(),
         })
         .collect();
     let hashtags = art.get_hashtags();

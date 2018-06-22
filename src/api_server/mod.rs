@@ -5,11 +5,11 @@ mod get_art;
 pub use self::worker::Worker;
 
 use std::sync::{Arc, Mutex};
-use images::size::{Size1500x1500, Size30x30};
+use images::size::{Size100x100, Size3000x3000};
 use db::Mongodb;
 
-type MosaicArtSize = Size1500x1500;
-type PieceImageSize = Size30x30;
+type MosaicArtSize = Size3000x3000;
+type PieceImageSize = Size100x100;
 type CurrentSharedMosaicArt = ::mosaic::SharedMosaicArt<MosaicArtSize, PieceImageSize>;
 type CurrentMosaicArtContainer = ::mosaic::MosaicArtContainer<MosaicArtSize, PieceImageSize>;
 
