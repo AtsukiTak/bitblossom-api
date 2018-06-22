@@ -26,6 +26,7 @@ where
 
     pub fn apply_piece(&mut self, piece: MosaicPiece<SS>) {
         let (pos, _replaced_piece) = self.pieces.replace_piece(piece.clone());
+        debug!("Apply a new piece to {:?}", pos);
         self.image.overpaint_by(piece.get_image(), pos);
     }
 

@@ -38,7 +38,7 @@ where
         let mut pieces = vec![(Distance::max_value(), None); piece_n as usize];
 
         for (idx, p) in origin.split_into_pieces().enumerate() {
-            if p.image.mean_alpha() >= 1.0 {
+            if p.image.mean_alpha() == 0.0 {
                 pieces[idx].0 = Distance::min_value();
             }
         }
@@ -60,12 +60,19 @@ where
 
             distances_curr
                 .zip(distances_new)
-                .map(|(dc, dn)| dc - dn)
+                .map(|(curr_dist, new_dist)| {
+                    if curr_dist < new_dist {
+                        0
+                    } else {
+                        curr_dist - new_dist
+                    }
+                })
                 .enumerate()
                 .max_by_key(|(_i, gap)| *gap)
                 .unwrap()
                 .0
         };
+        debug!("Replace index : {}", idx);
 
         // Replace old piece with new piece.
         let (_, old_piece) = replace(

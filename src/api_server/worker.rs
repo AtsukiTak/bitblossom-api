@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use futures::{Future, Stream};
 
 use mosaic::{DistanceCalculator, SharedMosaicArt};
@@ -6,17 +6,15 @@ use insta::InstaFeeder;
 use images::{SizedImage, size::{MultipleOf, Size, SmallerThan}};
 use db::Mongodb;
 
-const REFRESH_INTERVAL: u64 = 3;
-
 pub struct Worker {
     insta_feeder: Arc<InstaFeeder>,
     db: Mongodb,
 }
 
 impl Worker {
-    pub fn new(insta_api_server_host: String, db: Mongodb) -> Worker {
+    pub fn new(db: Mongodb) -> Worker {
         Worker {
-            insta_feeder: Arc::new(InstaFeeder::new(insta_api_server_host, db.clone())),
+            insta_feeder: Arc::new(InstaFeeder::new(db.clone())),
             db: db,
         }
     }
@@ -37,6 +35,7 @@ impl Worker {
         let mongodb = self.db.clone();
 
         // Initialize mosaic art
+        info!("Initialize mosaic art with database data");
         let mut init_posts = self.db.find_posts_by_hashtags(hashtags.as_slice(), 1000);
         for post in init_posts.drain(..) {
             let piece = distance_calc.calc_post(post);
@@ -48,7 +47,7 @@ impl Worker {
         // https://github.com/tokio-rs/tokio/issues/305
         ::std::thread::spawn(move || {
             let f = insta_feeder
-                .run(hashtags, Duration::new(REFRESH_INTERVAL, 0))
+                .run(hashtags)
                 .for_each(move |post| {
                     mongodb.insert_one_post(&post);
 

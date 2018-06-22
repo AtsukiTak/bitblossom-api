@@ -43,12 +43,11 @@ use self::db::Mongodb;
 
 fn main() {
     env_logger::init();
-    let insta_api_host = get_env_str("INSTA_API_SERVER_HOST");
     let mongodb_host = get_env_str("MONGODB_HOST");
     let mongodb_port = get_env_u16("MONGODB_PORT");
     let mongodb_db = get_env_str("MONGODB_DB");
     let mongodb = Mongodb::new(mongodb_host.as_str(), mongodb_port, mongodb_db.as_str());
-    api_server::run(insta_api_host, mongodb);
+    api_server::run(mongodb);
 }
 
 fn get_env_str(key: &str) -> String {

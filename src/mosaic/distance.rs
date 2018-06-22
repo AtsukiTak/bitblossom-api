@@ -53,6 +53,6 @@ impl MeanGrayscaleAlgo {
 
     fn calc<SS: Size>(&self, piece: &SizedImage<SS>) -> Vec<Distance> {
         let mean = piece.mean_grayscale();
-        self.cache.iter().map(move |f| f64::abs(f - mean) as u64).collect()
+        self.cache.iter().map(move |f| (f64::abs(f - mean) * 10000f64) as u64).collect()
     }
 }

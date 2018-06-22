@@ -1,6 +1,5 @@
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::sync::Arc;
 use futures::{Future, IntoFuture, Stream, stream::{iter_ok, repeat}};
-use tokio::timer::Delay;
 
 use images::{ImageFetcher, size::{MultipleOf, Size, SmallerThan}};
 use insta::{InstaApi, InstaPost};
@@ -14,9 +13,9 @@ pub struct InstaFeeder {
 }
 
 impl InstaFeeder {
-    pub fn new(insta_api_server_host: String, db: Mongodb) -> InstaFeeder {
+    pub fn new(db: Mongodb) -> InstaFeeder {
         InstaFeeder {
-            insta_api: Arc::new(InstaApi::new(insta_api_server_host)),
+            insta_api: Arc::new(InstaApi::new()),
             image_fetcher: Arc::new(ImageFetcher::new()),
             db: db,
         }
@@ -25,7 +24,6 @@ impl InstaFeeder {
     pub fn run<S, SS>(
         &self,
         hashtags: Vec<String>,
-        req_interval: Duration,
     ) -> impl Stream<Item = InstaPost<SS>, Error = Error>
     where
         S: Size + MultipleOf<SS>,
@@ -36,27 +34,25 @@ impl InstaFeeder {
         let insta_api2 = self.insta_api.clone();
         let db = self.db.clone();
         let image_fetcher = self.image_fetcher.clone();
-        let req_interval = req_interval.clone();
-        let req_interval2 = req_interval;
 
         repeat::<_, Error>(0)
             .and_then(move |_| {
                 let hashtag = hashtags_cycle.next();
                 debug!("Search instagram by hashtag : {}", hashtag);
-                call_api(insta_api.get_posts_by_hashtag(hashtag), req_interval)
+                insta_api.get_posts_by_hashtag(hashtag)
             })
-            .map(|posts| iter_ok::<_, Error>(posts))
+            .map(|res| {
+                let (tag, posts) = (res.hashtag, res.posts);
+                trace!("Get posts : {:?}", posts);
+                iter_ok::<_, Error>(posts).map(move |post| (tag.clone(), post))
+            })
             .flatten()
-            .filter(move |p| {
-                let b = db.contains_post(&p.id);
-                debug!("Has post {} : {}", &p.id, b);
-                !b
+            .filter(move |(_, p)| !db.contains_post(&p.id))
+            .and_then(move |(hashtag, p)| {
+                debug!("New post : {:?}", p);
+                insta_api2.get_post_by_id(&p.id).map(|post| (hashtag, post))
             })
-            .and_then(move |p| {
-                call_api(insta_api2.get_post_by_id(&p.id), req_interval2)
-                    .map(|post| (post, p.hashtag))
-            })
-            .and_then(move |(p, hashtag)| {
+            .and_then(move |(hashtag, p)| {
                 image_fetcher
                     .fetch_image::<SS>(p.image_url.as_str())
                     .into_future()
@@ -64,15 +60,6 @@ impl InstaFeeder {
                     .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
             })
     }
-}
-
-/// Send a request and wait some interval.
-fn call_api<F>(api_res_fut: F, req_interval: Duration) -> impl Future<Item = F::Item, Error = Error>
-where
-    F: Future<Error = Error>,
-{
-    let req_interval = Delay::new(Instant::now() + req_interval).map_err(Error::from);
-    api_res_fut.join(req_interval).map(|(res, _)| res)
 }
 
 struct HashtagCycle {
