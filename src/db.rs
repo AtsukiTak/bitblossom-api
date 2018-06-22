@@ -40,7 +40,10 @@ impl Mongodb {
 
     pub fn contains_post(&self, post_id: &InstaPostId) -> bool {
         let filter = doc! { "id": post_id.as_str() };
-        self.insta_post.find_one(Some(filter), None).is_ok()
+        self.insta_post
+            .find_one(Some(filter), None)
+            .expect("Should handle this error")
+            .is_some()
     }
 
     pub fn find_posts_by_hashtags<S: Size>(
