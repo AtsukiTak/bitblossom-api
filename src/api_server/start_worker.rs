@@ -1,11 +1,12 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use rocket::{State, response::status::{BadRequest, Created}};
 use rocket_contrib::Json;
 
 use images::{Size, SizedImage};
-use api_server::Worker;
+use mosaic::MosaicArtGenerator;
+use worker::WorkerManager;
 use error::Error;
-use super::CurrentMosaicArtContainer;
+use super::{MosaicArtSize, PieceImageSize};
 
 const HOST: &str = "";
 
@@ -16,8 +17,7 @@ const HOST: &str = "";
 #[post("/start_worker", format = "application/json", data = "<json>")]
 fn handler(
     json: Json<RawStartWorkerOption>,
-    worker: State<Worker>,
-    art_container: State<Arc<Mutex<CurrentMosaicArtContainer>>>,
+    worker_manager: State<Mutex<WorkerManager<MosaicArtSize, PieceImageSize>>>,
 ) -> Result<Created<String>, BadRequest<()>> {
     let option = StartWorkerOption::from(json.into_inner()).map_err(|_| BadRequest(None))?;
 
@@ -26,11 +26,14 @@ fn handler(
         option.hashtags
     );
 
-    let art = worker.inner().run(option.hashtags, option.origin_img);
-    info!("Run a new worker");
+    let generator = MosaicArtGenerator::new(option.origin_img, option.hashtags);
 
-    let id = art_container.lock().unwrap().add(art);
-    info!("New mosaic art's id : {}", id);
+    let id = worker_manager
+        .inner()
+        .lock()
+        .unwrap()
+        .start_worker(generator);
+    info!("Run a new worker");
 
     let created_url = format!("{}/{}", HOST, id);
     Ok(Created(created_url, Some(format!("{}", id))))

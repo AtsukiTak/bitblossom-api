@@ -1,24 +1,24 @@
 use std::marker::PhantomData;
 
-use images::{Size, SizedImage, SmallerThan, MultipleOf};
+use images::{MultipleOf, Size, SizedImage, SmallerThan};
 use insta::InstaPost;
 use super::MosaicPiece;
 
 pub type Distance = u64;
 
-pub struct DistanceCalculator<S, SS> {
+pub struct DistanceCalcAlgo<S, SS> {
     algo: MeanGrayscaleAlgo,
     _piece_size: PhantomData<(S, SS)>,
 }
 
-impl<S, SS> DistanceCalculator<S, SS>
+impl<S, SS> DistanceCalcAlgo<S, SS>
 where
     S: Size + MultipleOf<SS>,
     SS: Size + SmallerThan<S>,
 {
-    pub fn new(origin: SizedImage<S>) -> DistanceCalculator<S, SS> {
+    pub fn new(origin: &SizedImage<S>) -> DistanceCalcAlgo<S, SS> {
         let algo = MeanGrayscaleAlgo::new(&origin);
-        DistanceCalculator {
+        DistanceCalcAlgo {
             algo: algo,
             _piece_size: PhantomData,
         }
@@ -53,6 +53,9 @@ impl MeanGrayscaleAlgo {
 
     fn calc<SS: Size>(&self, piece: &SizedImage<SS>) -> Vec<Distance> {
         let mean = piece.mean_grayscale();
-        self.cache.iter().map(move |f| (f64::abs(f - mean) * 10000f64) as u64).collect()
+        self.cache
+            .iter()
+            .map(move |f| (f64::abs(f - mean) * 10000f64) as u64)
+            .collect()
     }
 }

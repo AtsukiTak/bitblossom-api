@@ -23,7 +23,7 @@ impl InstaFeeder {
 
     pub fn run<S, SS>(
         &self,
-        hashtags: Vec<String>,
+        hashtags: Arc<Vec<String>>,
     ) -> impl Stream<Item = InstaPost<SS>, Error = Error>
     where
         S: Size + MultipleOf<SS>,
@@ -63,12 +63,12 @@ impl InstaFeeder {
 }
 
 struct HashtagCycle {
-    hashtags: Vec<String>,
+    hashtags: Arc<Vec<String>>,
     next_idx: usize,
 }
 
 impl HashtagCycle {
-    pub fn new(hashtags: Vec<String>) -> HashtagCycle {
+    pub fn new(hashtags: Arc<Vec<String>>) -> HashtagCycle {
         HashtagCycle {
             hashtags: hashtags,
             next_idx: 0,

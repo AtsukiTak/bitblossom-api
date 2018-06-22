@@ -2,8 +2,9 @@ use std::sync::{Arc, Mutex};
 use rocket::{State, response::status::NotFound};
 use rocket_contrib::Json;
 
-use mosaic::MosaicArtId;
-use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt};
+use mosaic::MosaicArt;
+use worker::{WorkerId, WorkerManager};
+use super::{MosaicArtSize, PieceImageSize};
 
 // =================================
 // get mosaic art API
@@ -12,27 +13,32 @@ use super::{CurrentMosaicArtContainer, CurrentSharedMosaicArt};
 #[get("/<id>")]
 fn handler(
     id: u64,
-    arts: State<Arc<Mutex<CurrentMosaicArtContainer>>>,
+    worker_manager: State<Mutex<WorkerManager<MosaicArtSize, PieceImageSize>>>,
 ) -> Result<Json<MosaicArtResponse>, NotFound<&'static str>> {
-    match arts.inner().lock().unwrap().get(MosaicArtId(id)) {
-        Some(ref art) => Ok(Json(construct_response(art))),
+    match worker_manager
+        .inner()
+        .lock()
+        .unwrap()
+        .get_worker(WorkerId(id))
+    {
+        Some(ref worker) => Ok(Json(construct_response(worker.get_art()))),
         None => Err(NotFound("Nothing is also art...")),
     }
 }
 
-fn construct_response(art: &CurrentSharedMosaicArt) -> MosaicArtResponse {
+fn construct_response(art: Arc<MosaicArt<MosaicArtSize, PieceImageSize>>) -> MosaicArtResponse {
     let mosaic_art = {
-        let png_img = art.get_image().to_png_bytes();
+        let png_img = art.image.to_png_bytes();
         ::base64::encode(png_img.as_slice())
     };
-    let piece_posts = art.get_piece_posts()
+    let piece_posts = art.pieces
         .iter()
         .map(|post| InstaPostResponse {
             post_id: post.post_id.0.clone(),
             user_name: post.user_name.clone(),
         })
         .collect();
-    let hashtags = art.get_hashtags();
+    let hashtags = art.hashtags.as_ref().clone();
     MosaicArtResponse {
         mosaic_art: mosaic_art,
         piece_posts: piece_posts,

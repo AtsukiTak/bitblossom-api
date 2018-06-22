@@ -36,6 +36,7 @@ pub mod mosaic;
 pub mod images;
 pub mod insta;
 pub mod api_server;
+pub mod worker;
 pub mod error;
 pub mod db;
 

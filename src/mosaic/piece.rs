@@ -33,7 +33,7 @@ where
 
     // Returns MosaicPieceVec based on origin image.
     // Piece whose alpha is 1.0 in origin image never be Some.
-    pub fn with_origin_image(origin: SizedImage<S>) -> MosaicPieceVec<S, SS> {
+    pub fn with_origin_image(origin: &SizedImage<S>) -> MosaicPieceVec<S, SS> {
         let piece_n = (S::WIDTH * S::HEIGHT) / (SS::WIDTH * SS::HEIGHT);
         let mut pieces = vec![(Distance::max_value(), None); piece_n as usize];
 
