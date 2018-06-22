@@ -74,14 +74,11 @@ impl Mongodb {
 }
 
 fn doc_2_post<S: Size>(doc: Document) -> InstaPost<S> {
+    let id = InstaPostId(doc.get_str("id").unwrap().into());
     let image = {
-        let binary = doc.get_document("image")
-            .unwrap()
-            .get_binary_generic("binary")
-            .unwrap();
+        let binary = doc.get_binary_generic("image").unwrap();
         SizedImage::from_raw_bytes(binary).unwrap()
     };
-    let id = InstaPostId(doc.get_str("id").unwrap().into());
     let username = doc.get_str("username").unwrap().into();
     let hashtag = doc.get_str("hashtag").unwrap().into();
     InstaPost::new(id, username, image, hashtag)
