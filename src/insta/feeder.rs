@@ -29,17 +29,20 @@ impl InstaFeeder {
         S: Size + MultipleOf<SS>,
         SS: Size + SmallerThan<S>,
     {
+        let tag = hashtags[0].clone();
+        let tag2 = tag.clone();
+        let init_posts = self.insta_api
+            .get_bunch_posts_by_hashtag(&tag2, 2000)
+            .into_stream()
+            .map(|vec| iter_ok::<_, Error>(vec))
+            .flatten()
+            .map(move |post| (tag.clone(), post));
+
         let mut hashtags_cycle = HashtagCycle::new(hashtags);
         let insta_api = self.insta_api.clone();
         let insta_api2 = self.insta_api.clone();
         let db = self.db.clone();
         let image_fetcher = self.image_fetcher.clone();
-
-        let init_posts = insta_api
-                .get_bunch_posts_by_hashtag(&hashtags[0], 2000)
-		.into_stream()
-                .map(|vec| iter_ok::<_, Error>(vec))
-                .flatten();
 
         let update_posts = repeat::<_, Error>(0)
             .and_then(move |_| {
@@ -52,7 +55,11 @@ impl InstaFeeder {
                 trace!("Get posts : {:?}", posts);
                 iter_ok::<_, Error>(posts).map(move |post| (tag.clone(), post))
             })
-            .flatten()
+            .flatten();
+
+        let post_stream = init_posts.chain(update_posts);
+
+        post_stream
             .filter(move |(_, p)| !db.contains_post(&p.id))
             .and_then(move |(hashtag, p)| {
                 debug!("New post : {:?}", p);
@@ -64,9 +71,7 @@ impl InstaFeeder {
                     .into_future()
                     .and_then(|img_fut| img_fut)
                     .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
-            });
-
-        init_posts.chain(update_posts)
+            })
     }
 }
 

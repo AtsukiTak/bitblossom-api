@@ -18,7 +18,7 @@ img = open(img_file_path, 'rb').read()
 encoded_img = base64.standard_b64encode(img)
 print('Encoded image into base64')
 
-payload = {'origin_img': encoded_img.decode('utf-8'), 'hashtags': hashtags}
+payload = {'origin': encoded_img.decode('utf-8'), 'hashtags': hashtags, 'piece_size': [30, 30]}
 
 res = requests.post(url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
 
