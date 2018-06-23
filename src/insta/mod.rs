@@ -23,9 +23,14 @@ impl ::std::fmt::Display for InstaPostId {
 
 #[derive(Debug, Clone)]
 pub struct InstaPost<S> {
+    pub meta: InstaPostInfo,
+    pub image: SizedImage<S>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InstaPostInfo {
     pub post_id: InstaPostId,
     pub user_name: String,
-    pub image: SizedImage<S>,
     pub hashtag: String,
 }
 
@@ -37,10 +42,12 @@ impl<S: Size> InstaPost<S> {
         hashtag: String,
     ) -> InstaPost<S> {
         InstaPost {
-            post_id: id,
-            user_name: username,
+            meta: InstaPostInfo {
+                post_id: id,
+                user_name: username,
+                hashtag: hashtag,
+            },
             image: img,
-            hashtag: hashtag,
         }
     }
 }

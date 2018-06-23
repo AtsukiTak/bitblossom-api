@@ -1,12 +1,75 @@
-use std::{marker::PhantomData, ops::Deref};
+use std::{marker::PhantomData, ops::{Deref, DerefMut}};
 use image::{FilterType, GenericImage, Pixel, Rgba, RgbaImage, imageops::resize, png::PNGEncoder};
 
 use images::{MultipleOf, Size, SmallerThan};
 use error::Error;
 
 #[derive(Debug, Clone)]
+pub struct Image {
+    raw: RgbaImage,
+}
+
+impl Image {
+    pub fn new(raw: RgbaImage) -> Image {
+        Image { raw: raw }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Image, Error> {
+        Ok(Image::new(::image::load_from_memory(bytes)?.to_rgba()))
+    }
+
+    pub fn clear_image(width: u32, height: u32) -> Image {
+        const CLEAR_PIXEL: Rgba<u8> = Rgba { data: [0, 0, 0, 0] };
+        let clear_img = RgbaImage::from_pixel(width, height, CLEAR_PIXEL);
+        Image::new(clear_img)
+    }
+
+    pub fn to_png_bytes(&self) -> Vec<u8> {
+        let mut vec = Vec::new();
+        PNGEncoder::new(&mut vec)
+            .encode(
+                self.raw.deref(),
+                self.raw.width(),
+                self.raw.height(),
+                Rgba::<u8>::color_type(),
+            )
+            .expect("Failed to encode into PNG");
+        vec
+    }
+
+    pub fn resize(&self, width: u32, height: u32) -> Image {
+        Image::new(resize(&self.raw, width, height, FilterType::Lanczos3))
+    }
+
+    pub fn mean_grayscale(&self) -> f64 {
+        let img = ::image::imageops::grayscale(&self.raw);
+        let sum_gray: f64 = img.iter().fold(0f64, |sum, i| sum + (*i as f64));
+        sum_gray / (img.len() as f64)
+    }
+
+    pub fn mean_alpha(&self) -> f64 {
+        let alpha_iter = self.raw.chunks(4).map(|chunk| chunk[3]);
+        let sum_alpha = alpha_iter.fold(0u64, |sum, a| sum + (a as u64));
+        sum_alpha as f64 / (self.raw.len() / 4) as f64
+    }
+}
+
+impl Deref for Image {
+    type Target = RgbaImage;
+    fn deref(&self) -> &RgbaImage {
+        &self.raw
+    }
+}
+
+impl DerefMut for Image {
+    fn deref_mut(&mut self) -> &mut RgbaImage {
+        &mut self.raw
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct SizedImage<S> {
-    image: RgbaImage,
+    pub image: Image,
     _size: PhantomData<S>,
 }
 
@@ -19,7 +82,7 @@ pub struct InvalidSizeError {
 }
 
 impl<S: Size> SizedImage<S> {
-    pub fn new(image: RgbaImage) -> Result<SizedImage<S>, Error> {
+    pub fn new(image: Image) -> Result<SizedImage<S>, Error> {
         if image.width() == S::WIDTH && image.height() == S::HEIGHT {
             Ok(SizedImage {
                 image: image,
@@ -30,56 +93,15 @@ impl<S: Size> SizedImage<S> {
         }
     }
 
+    pub fn with_resize(image: Image) -> SizedImage<S> {
+        SizedImage::new(image.resize(S::WIDTH, S::HEIGHT)).unwrap()
+    }
+
     pub fn clear_image() -> SizedImage<S> {
-        const CLEAR_PIXEL: Rgba<u8> = Rgba { data: [0, 0, 0, 0] };
-        let clear_img = RgbaImage::from_pixel(S::WIDTH, S::HEIGHT, CLEAR_PIXEL);
         SizedImage {
-            image: clear_img,
+            image: Image::clear_image(S::WIDTH, S::HEIGHT),
             _size: PhantomData,
         }
-    }
-
-    pub fn from_another_size(image: RgbaImage) -> SizedImage<S> {
-        let resized = resize(&image, S::WIDTH, S::HEIGHT, FilterType::Lanczos3);
-        SizedImage {
-            image: resized,
-            _size: PhantomData,
-        }
-    }
-
-    pub fn from_raw_bytes(bytes: &[u8]) -> Result<SizedImage<S>, Error> {
-        let img = ::image::load_from_memory(bytes)?.to_rgba();
-        SizedImage::new(img)
-    }
-
-    pub fn from_another_image_raw_bytes(bytes: &[u8]) -> Result<SizedImage<S>, Error> {
-        let img = ::image::load_from_memory(bytes)?.to_rgba();
-        Ok(SizedImage::from_another_size(img))
-    }
-
-    pub fn to_png_bytes(&self) -> Vec<u8> {
-        let mut vec = Vec::new();
-        PNGEncoder::new(&mut vec)
-            .encode(
-                self.image.deref(),
-                S::WIDTH,
-                S::HEIGHT,
-                Rgba::<u8>::color_type(),
-            )
-            .expect("Failed to encode into PNG");
-        vec
-    }
-
-    pub fn mean_grayscale(&self) -> f64 {
-        let img = ::image::imageops::grayscale(&self.image);
-        let sum_gray: f64 = img.iter().fold(0f64, |sum, i| sum + (*i as f64));
-        sum_gray / (img.len() as f64)
-    }
-
-    pub fn mean_alpha(&self) -> f64 {
-        let alpha_iter = self.image.chunks(4).map(|chunk| chunk[3]);
-        let sum_alpha = alpha_iter.fold(0u64, |sum, a| sum + (a as u64));
-        sum_alpha as f64 / (self.image.len() / 4) as f64
     }
 
     /// Fast crop function
@@ -102,7 +124,7 @@ impl<S: Size> SizedImage<S> {
                 let y = y + i;
                 let start_idx = 4 * (y * S::WIDTH as usize + x);
                 let end_idx = start_idx + width_pixels;
-                &self.image.deref()[start_idx..end_idx]
+                &self.image.raw.deref()[start_idx..end_idx]
             };
             let dist_bytes = {
                 let start_idx = i * width_pixels;
@@ -111,7 +133,7 @@ impl<S: Size> SizedImage<S> {
             };
             dist_bytes.copy_from_slice(source_bytes);
         }
-        let img = RgbaImage::from_vec(width as u32, height as u32, vec).unwrap();
+        let img = Image::new(RgbaImage::from_vec(width as u32, height as u32, vec).unwrap());
         SizedImage::new(img).unwrap()
     }
 
@@ -131,7 +153,20 @@ impl<S: Size> SizedImage<S> {
     where
         SS: Size + SmallerThan<S>,
     {
-        self.image.copy_from(&image.image, pos.x, pos.y);
+        self.image.raw.copy_from(&image.image.raw, pos.x, pos.y);
+    }
+}
+
+impl<S: Size> Deref for SizedImage<S> {
+    type Target = Image;
+    fn deref(&self) -> &Image {
+        &self.image
+    }
+}
+
+impl<S: Size> DerefMut for SizedImage<S> {
+    fn deref_mut(&mut self) -> &mut Image {
+        &mut self.image
     }
 }
 

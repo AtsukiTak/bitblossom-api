@@ -4,7 +4,6 @@ use rocket_contrib::Json;
 
 use mosaic::MosaicArt;
 use worker::{WorkerId, WorkerManager};
-use super::{MosaicArtSize, PieceImageSize};
 
 // =================================
 // get mosaic art API
@@ -13,7 +12,7 @@ use super::{MosaicArtSize, PieceImageSize};
 #[get("/<id>")]
 fn handler(
     id: u64,
-    worker_manager: State<Mutex<WorkerManager<MosaicArtSize, PieceImageSize>>>,
+    worker_manager: State<Mutex<WorkerManager>>,
 ) -> Result<Json<MosaicArtResponse>, NotFound<&'static str>> {
     match worker_manager
         .inner()
@@ -26,12 +25,12 @@ fn handler(
     }
 }
 
-fn construct_response(art: Arc<MosaicArt<MosaicArtSize, PieceImageSize>>) -> MosaicArtResponse {
+fn construct_response(art: Arc<MosaicArt>) -> MosaicArtResponse {
     let mosaic_art = {
         let png_img = art.image.to_png_bytes();
         ::base64::encode(png_img.as_slice())
     };
-    let piece_posts = art.pieces
+    let piece_posts = art.posts
         .iter()
         .map(|post| InstaPostResponse {
             post_id: post.post_id.0.clone(),

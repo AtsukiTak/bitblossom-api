@@ -107,7 +107,10 @@ fn get_posts_by_hashtag(
         .and_then(|res| res.into_body().concat2())
         .map_err(Error::from)
         .and_then(|chunk| {
-            trace!("Response from Instagram : {}", ::std::str::from_utf8(&chunk).unwrap());
+            trace!(
+                "Response from Instagram : {}",
+                ::std::str::from_utf8(&chunk).unwrap()
+            );
             Ok(::serde_json::from_slice::<Response>(&chunk)?)
         })
         .map(parse_res)
@@ -153,7 +156,10 @@ pub fn get_post_by_id(
         .and_then(|res| res.into_body().concat2())
         .map_err(Error::from)
         .and_then(|chunk| {
-            trace!("Response from Instagram : {}", ::std::str::from_utf8(&chunk).unwrap());
+            trace!(
+                "Response from Instagram : {}",
+                ::std::str::from_utf8(&chunk).unwrap()
+            );
             Ok(::serde_json::from_slice::<Response>(&chunk)?)
         })
         .map(parse_res)
