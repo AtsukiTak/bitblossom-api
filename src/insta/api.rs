@@ -53,14 +53,15 @@ impl InstaApi {
             Some(delay.and_then(move |_| res.map(|res| (res.posts, res.end_cursor))))
         });
         let mut n = 0;
-        posts_stream.take_while(move |posts| {
-            n += posts.len();
-            Ok::<_, Error>(n > limit)
-        })
-        .fold(Vec::new(), |mut buf, mut posts| {
-            buf.append(&mut posts);
-            Ok::<_, Error>(buf)
-        })
+        posts_stream
+            .take_while(move |posts| {
+                n += posts.len();
+                Ok::<_, Error>(n < limit)
+            })
+            .fold(Vec::new(), |mut buf, mut posts| {
+                buf.append(&mut posts);
+                Ok::<_, Error>(buf)
+            })
     }
 }
 
@@ -106,7 +107,11 @@ fn get_posts_by_hashtag(
 
     fn parse_res(mut res: Response) -> InstaHashtagResponse {
         let hashtag = res.graphql.hashtag.name;
-        let end_cursor = res.graphql.hashtag.edge_hashtag_to_media.page_info.end_cursor;
+        let end_cursor = res.graphql
+            .hashtag
+            .edge_hashtag_to_media
+            .page_info
+            .end_cursor;
         let posts = res.graphql
             .hashtag
             .edge_hashtag_to_media
@@ -127,8 +132,14 @@ fn get_posts_by_hashtag(
     let url = {
         let encoded_hashtag = percent_encode(hashtag.as_bytes(), DEFAULT_ENCODE_SET).to_string();
         let url_str = match max_id {
-            Some(id) => format!("https://www.instagram.com/explore/tags/{}/?__a=1&max_id={}", encoded_hashtag, id),
-            None => format!("https://www.instagram.com/explore/tags/{}/?__a=1", encoded_hashtag),
+            Some(id) => format!(
+                "https://www.instagram.com/explore/tags/{}/?__a=1&max_id={}",
+                encoded_hashtag, id
+            ),
+            None => format!(
+                "https://www.instagram.com/explore/tags/{}/?__a=1",
+                encoded_hashtag
+            ),
         };
         Uri::from_str(url_str.as_str()).unwrap()
     };
