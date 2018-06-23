@@ -1,5 +1,5 @@
 use std::{str::FromStr, time::{Duration, Instant}};
-use futures::{Future, Stream};
+use futures::{Future, Stream, stream::iter_ok};
 use hyper::{Uri, client::{Client, HttpConnector}};
 use hyper_tls::HttpsConnector;
 use tokio::timer::Delay;
@@ -42,26 +42,24 @@ impl InstaApi {
     pub fn get_bunch_posts_by_hashtag(
         &self,
         hashtag: &str,
-        limit: usize,
-    ) -> impl Future<Item = Vec<InstaPartialPost>, Error = Error> {
+    ) -> impl Stream<Item = InstaPartialPost, Error = Error> {
         let interval = self.delay.clone();
         let client = self.client.clone();
         let hashtag: String = hashtag.into();
-        let posts_stream = ::futures::stream::unfold(None, move |max_id| {
-            let delay = Delay::new(Instant::now() + interval.clone()).map_err(Error::from);
-            let res = get_posts_by_hashtag(&client, hashtag.as_str(), max_id);
-            Some(delay.and_then(move |_| res.map(|res| (res.posts, res.end_cursor))))
+        let posts_stream = ::futures::stream::unfold((None, true), move |(max_id, has_next)| {
+            if has_next == false {
+                None
+            } else {
+                let delay = Delay::new(Instant::now() + interval.clone()).map_err(Error::from);
+                let res = get_posts_by_hashtag(&client, hashtag.as_str(), max_id);
+                Some(delay.and_then(move |_| {
+                    res.map(|res| (res.posts, (res.end_cursor, res.has_next_page)))
+                }))
+            }
         });
-        let mut n = 0;
         posts_stream
-            .take_while(move |posts| {
-                n += posts.len();
-                Ok::<_, Error>(n < limit)
-            })
-            .fold(Vec::new(), |mut buf, mut posts| {
-                buf.append(&mut posts);
-                Ok::<_, Error>(buf)
-            })
+            .map(|posts| iter_ok::<_, Error>(posts))
+            .flatten()
     }
 }
 
@@ -92,6 +90,7 @@ fn get_posts_by_hashtag(
     #[derive(Deserialize)]
     struct PageInfo {
         end_cursor: Option<String>,
+        has_next_page: bool,
     }
     #[derive(Deserialize)]
     struct Edge {
@@ -112,6 +111,11 @@ fn get_posts_by_hashtag(
             .edge_hashtag_to_media
             .page_info
             .end_cursor;
+        let has_next_page = res.graphql
+            .hashtag
+            .edge_hashtag_to_media
+            .page_info
+            .has_next_page;
         let posts = res.graphql
             .hashtag
             .edge_hashtag_to_media
@@ -126,6 +130,7 @@ fn get_posts_by_hashtag(
             posts: posts,
             hashtag: hashtag,
             end_cursor: end_cursor,
+            has_next_page: has_next_page,
         }
     }
 
@@ -212,6 +217,7 @@ pub struct InstaHashtagResponse {
     pub posts: Vec<InstaPartialPost>,
     pub hashtag: String,
     pub end_cursor: Option<String>,
+    pub has_next_page: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]

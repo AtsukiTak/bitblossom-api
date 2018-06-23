@@ -32,11 +32,12 @@ impl InstaFeeder {
         let tag = hashtags[0].clone();
         let tag2 = tag.clone();
         let init_posts = self.insta_api
-            .get_bunch_posts_by_hashtag(&tag2, 2000)
-            .into_stream()
-            .map(|vec| iter_ok::<_, Error>(vec))
-            .flatten()
-            .map(move |post| (tag.clone(), post));
+            .get_bunch_posts_by_hashtag(&tag2)
+            .take(2000)
+            .map(move |post| {
+                println!("###############################");
+                (tag.clone(), post)
+            });
 
         let mut hashtags_cycle = HashtagCycle::new(hashtags);
         let insta_api = self.insta_api.clone();
