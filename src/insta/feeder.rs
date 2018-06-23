@@ -35,7 +35,13 @@ impl InstaFeeder {
         let db = self.db.clone();
         let image_fetcher = self.image_fetcher.clone();
 
-        repeat::<_, Error>(0)
+        let init_posts = insta_api
+                .get_bunch_posts_by_hashtag(&hashtags[0], 2000)
+		.into_stream()
+                .map(|vec| iter_ok::<_, Error>(vec))
+                .flatten();
+
+        let update_posts = repeat::<_, Error>(0)
             .and_then(move |_| {
                 let hashtag = hashtags_cycle.next();
                 debug!("Search instagram by hashtag : {}", hashtag);
@@ -58,7 +64,9 @@ impl InstaFeeder {
                     .into_future()
                     .and_then(|img_fut| img_fut)
                     .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
-            })
+            });
+
+        init_posts.chain(update_posts)
     }
 }
 

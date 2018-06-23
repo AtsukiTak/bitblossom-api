@@ -26,7 +26,7 @@ impl InstaApi {
         hashtag: &str,
     ) -> impl Future<Item = InstaHashtagResponse, Error = Error> {
         let delay = Delay::new(Instant::now() + self.delay.clone()).map_err(Error::from);
-        let res = get_posts_by_hashtag(&self.client, hashtag);
+        let res = get_posts_by_hashtag(&self.client, hashtag, None);
         delay.and_then(|_| res)
     }
 
@@ -38,12 +38,37 @@ impl InstaApi {
         let res = get_post_by_id(&self.client, id);
         delay.and_then(|_| res)
     }
+
+    pub fn get_bunch_posts_by_hashtag(
+        &self,
+        hashtag: &str,
+        limit: usize,
+    ) -> impl Future<Item = Vec<InstaPartialPost>, Error = Error> {
+        let interval = self.delay.clone();
+        let client = self.client.clone();
+        let hashtag: String = hashtag.into();
+        let posts_stream = ::futures::stream::unfold(None, move |max_id| {
+            let delay = Delay::new(Instant::now() + interval.clone()).map_err(Error::from);
+            let res = get_posts_by_hashtag(&client, hashtag.as_str(), max_id);
+            Some(delay.and_then(move |_| res.map(|res| (res.posts, res.end_cursor))))
+        });
+        let mut n = 0;
+        posts_stream.take_while(move |posts| {
+            n += posts.len();
+            Ok::<_, Error>(n > limit)
+        })
+        .fold(Vec::new(), |mut buf, mut posts| {
+            buf.append(&mut posts);
+            Ok::<_, Error>(buf)
+        })
+    }
 }
 
 // internal api caller functions
 fn get_posts_by_hashtag(
     client: &Client<HttpsConnector<HttpConnector>>,
     hashtag: &str,
+    max_id: Option<String>,
 ) -> impl Future<Item = InstaHashtagResponse, Error = Error> {
     #[derive(Deserialize)]
     struct Response {
@@ -61,6 +86,11 @@ fn get_posts_by_hashtag(
     #[derive(Deserialize)]
     struct EdgeToMedia {
         edges: Vec<Edge>,
+        page_info: PageInfo,
+    }
+    #[derive(Deserialize)]
+    struct PageInfo {
+        end_cursor: Option<String>,
     }
     #[derive(Deserialize)]
     struct Edge {
@@ -76,6 +106,7 @@ fn get_posts_by_hashtag(
 
     fn parse_res(mut res: Response) -> InstaHashtagResponse {
         let hashtag = res.graphql.hashtag.name;
+        let end_cursor = res.graphql.hashtag.edge_hashtag_to_media.page_info.end_cursor;
         let posts = res.graphql
             .hashtag
             .edge_hashtag_to_media
@@ -89,17 +120,17 @@ fn get_posts_by_hashtag(
         InstaHashtagResponse {
             posts: posts,
             hashtag: hashtag,
+            end_cursor: end_cursor,
         }
     }
 
     let url = {
         let encoded_hashtag = percent_encode(hashtag.as_bytes(), DEFAULT_ENCODE_SET).to_string();
-        Uri::from_str(
-            format!(
-                "https://www.instagram.com/explore/tags/{}/?__a=1",
-                encoded_hashtag
-            ).as_str(),
-        ).unwrap()
+        let url_str = match max_id {
+            Some(id) => format!("https://www.instagram.com/explore/tags/{}/?__a=1&max_id={}", encoded_hashtag, id),
+            None => format!("https://www.instagram.com/explore/tags/{}/?__a=1", encoded_hashtag),
+        };
+        Uri::from_str(url_str.as_str()).unwrap()
     };
 
     client
@@ -169,6 +200,7 @@ pub fn get_post_by_id(
 pub struct InstaHashtagResponse {
     pub posts: Vec<InstaPartialPost>,
     pub hashtag: String,
+    pub end_cursor: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
