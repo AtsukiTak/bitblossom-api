@@ -14,7 +14,7 @@ const HOST: &str = "";
 // start worker API
 // =================================
 
-#[post("/start_worker", format = "application/json", data = "<json>")]
+#[post("/worker", format = "application/json", data = "<json>")]
 fn handler(
     json: Json<RawStartWorkerOption>,
     worker_manager: State<Mutex<WorkerManager>>,
