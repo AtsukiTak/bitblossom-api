@@ -79,7 +79,7 @@ impl Worker {
         let (tx, rx) = oneshot::channel();
 
         ::std::thread::spawn(move || {
-            let post_stream = insta_feeder.run(generator.hashtags());
+            let post_stream = insta_feeder.run(&generator.hashtags());
             let running = post_stream.for_each(move |post| {
                 db.insert_one_post(&post);
                 let new_art = generator.apply_post(post);

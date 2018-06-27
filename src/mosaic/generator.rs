@@ -1,19 +1,17 @@
-use std::sync::Arc;
-
 use images::{MultipleOf, Size, SizedImage, Image, SmallerThan};
-use insta::{InstaPostInfo, InstaPost};
+use insta::{InstaPostInfo, InstaPost, HashtagList};
 use super::{DistanceCalcAlgo, MosaicPieceVec};
 
 pub struct MosaicArt {
     pub image: Image,
     pub posts: Vec<InstaPostInfo>,
-    pub hashtags: Arc<Vec<String>>,
+    pub hashtags: HashtagList,
 }
 
 pub struct MosaicArtGenerator<S, SS> {
     // immutable
     _origin_image: SizedImage<S>,
-    hashtags: Arc<Vec<String>>,
+    hashtags: HashtagList,
     calc_algo: DistanceCalcAlgo<S, SS>,
 
     // mutable
@@ -27,7 +25,7 @@ where
     SS: Size + SmallerThan<S>,
 {
     pub fn new(origin: SizedImage<S>, hashtags: Vec<String>) -> MosaicArtGenerator<S, SS> {
-        let hashtags = Arc::new(hashtags);
+        let hashtags = HashtagList::new(hashtags);
         let current_art = SizedImage::clear_image();
         let pieces = MosaicPieceVec::with_origin_image(&origin);
         let calc_algo = DistanceCalcAlgo::new(&origin);
@@ -40,7 +38,7 @@ where
         }
     }
 
-    pub fn hashtags(&self) -> Arc<Vec<String>> {
+    pub fn hashtags(&self) -> HashtagList {
         self.hashtags.clone()
     }
 

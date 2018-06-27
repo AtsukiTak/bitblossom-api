@@ -4,7 +4,7 @@ use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
 use bson::{Bson, Document, spec::BinarySubtype};
 
 use images::{Image, Size, SizedImage};
-use insta::{InstaPost, InstaPostId};
+use insta::{Hashtag, HashtagList, InstaPost, InstaPostId};
 
 #[derive(Clone)]
 pub struct Mongodb {
@@ -48,13 +48,13 @@ impl Mongodb {
 
     pub fn find_posts_by_hashtags<S: Size>(
         &self,
-        hashtags: &[String],
+        hashtags: &HashtagList,
         limit: i64,
     ) -> Vec<InstaPost<S>> {
         debug!("Find posts by hashtags : {:?}", hashtags);
         let hashtags_filter: Vec<Bson> = hashtags
             .iter()
-            .map(|h| bson!(doc!{ "hashtag": h }))
+            .map(|h| bson!(doc!{ "hashtag": h.as_str() }))
             .collect();
         let filter = doc! {
             "$or": hashtags_filter,
@@ -81,6 +81,6 @@ fn doc_2_post<S: Size>(doc: Document) -> InstaPost<S> {
         SizedImage::with_resize(image)
     };
     let username = doc.get_str("username").unwrap().into();
-    let hashtag = doc.get_str("hashtag").unwrap().into();
+    let hashtag = Hashtag::new(doc.get_str("hashtag").unwrap());
     InstaPost::new(id, username, image, hashtag)
 }

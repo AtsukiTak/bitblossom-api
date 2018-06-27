@@ -5,7 +5,7 @@ use hyper_tls::HttpsConnector;
 use tokio::timer::Delay;
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 
-use insta::InstaPostId;
+use insta::{Hashtag, InstaPostId};
 use error::Error;
 
 const API_INTERVAL_SEC: u64 = 3;
@@ -25,11 +25,16 @@ impl InstaApi {
 
     pub fn get_posts_by_hashtag(
         &self,
-        hashtag: &str,
-    ) -> impl Future<Item = InstaHashtagResponse, Error = Error> {
+        hashtag: &Hashtag,
+    ) -> impl Stream<Item = (Hashtag, InstaPartialPost), Error = Error> {
         let delay = Delay::new(Instant::now() + self.delay.clone()).map_err(Error::from);
         let res = get_posts_by_hashtag(&self.client, hashtag, None);
-        delay.and_then(|_| res)
+        let hashtag = hashtag.clone();
+        delay
+            .and_then(|_| res)
+            .map(|res| iter_ok::<_, Error>(res.posts))
+            .flatten_stream()
+            .map(move |post| (hashtag.clone(), post))
     }
 
     pub fn get_post_by_id(
@@ -43,32 +48,34 @@ impl InstaApi {
 
     pub fn get_bunch_posts_by_hashtag(
         &self,
-        hashtag: &str,
-    ) -> impl Stream<Item = InstaPartialPost, Error = Error> {
+        hashtag: &Hashtag,
+    ) -> impl Stream<Item = (Hashtag, InstaPartialPost), Error = Error> {
         let interval = self.delay.clone();
         let client = self.client.clone();
-        let hashtag: String = hashtag.into();
+        let hashtag2 = hashtag.clone();
         let posts_stream = ::futures::stream::unfold((None, true), move |(max_id, has_next)| {
             if has_next == false {
                 None
             } else {
                 let delay = Delay::new(Instant::now() + interval.clone()).map_err(Error::from);
-                let res = get_posts_by_hashtag(&client, hashtag.as_str(), max_id);
+                let res = get_posts_by_hashtag(&client, &hashtag2, max_id);
                 Some(delay.and_then(move |_| {
                     res.map(|res| (res.posts, (res.end_cursor, res.has_next_page)))
                 }))
             }
         });
+        let hashtag2 = hashtag.clone();
         posts_stream
             .map(|posts| iter_ok::<_, Error>(posts))
             .flatten()
+            .map(move |post| (hashtag2.clone(), post))
     }
 }
 
 // internal api caller functions
 fn get_posts_by_hashtag(
     client: &Client<HttpsConnector<HttpConnector>>,
-    hashtag: &str,
+    hashtag: &Hashtag,
     max_id: Option<String>,
 ) -> impl Future<Item = InstaHashtagResponse, Error = Error> {
     #[derive(Deserialize)]
@@ -137,7 +144,8 @@ fn get_posts_by_hashtag(
     }
 
     let url = {
-        let encoded_hashtag = percent_encode(hashtag.as_bytes(), DEFAULT_ENCODE_SET).to_string();
+        let encoded_hashtag =
+            percent_encode(hashtag.as_str().as_bytes(), DEFAULT_ENCODE_SET).to_string();
         let url_str = match max_id {
             Some(id) => format!(
                 "https://www.instagram.com/explore/tags/{}/?__a=1&max_id={}",

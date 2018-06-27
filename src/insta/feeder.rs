@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use futures::{Future, IntoFuture, Stream, stream::{iter_ok, repeat}};
+use futures::{Future, IntoFuture, Stream, stream::iter_ok};
 
 use images::{ImageFetcher, size::{MultipleOf, Size, SmallerThan}};
-use insta::{InstaApi, InstaPost};
+use insta::{HashtagList, InstaApi, InstaPost};
 use db::Mongodb;
 use error::Error;
 
@@ -23,48 +23,32 @@ impl InstaFeeder {
 
     pub fn run<S, SS>(
         &self,
-        hashtags: Arc<Vec<String>>,
+        hashtags: &HashtagList,
     ) -> impl Stream<Item = InstaPost<SS>, Error = Error>
     where
         S: Size + MultipleOf<SS>,
         SS: Size + SmallerThan<S>,
     {
-        let tag = hashtags[0].clone();
-        let tag2 = tag.clone();
-        let init_posts = self.insta_api
-            .get_bunch_posts_by_hashtag(&tag2)
-            .take(2000)
-            .map(move |post| {
-                println!("###############################");
-                (tag.clone(), post)
-            });
-
-        let mut hashtags_cycle = HashtagCycle::new(hashtags);
         let insta_api = self.insta_api.clone();
-        let insta_api2 = self.insta_api.clone();
-        let db = self.db.clone();
-        let image_fetcher = self.image_fetcher.clone();
+        let init_posts = iter_ok::<_, Error>(hashtags.iter())
+            .map(move |hashtag| insta_api.get_bunch_posts_by_hashtag(&hashtag).take(1000))
+            .flatten();
 
-        let update_posts = repeat::<_, Error>(0)
-            .and_then(move |_| {
-                let hashtag = hashtags_cycle.next();
-                debug!("Search instagram by hashtag : {}", hashtag);
-                insta_api.get_posts_by_hashtag(hashtag)
-            })
-            .map(|res| {
-                let (tag, posts) = (res.hashtag, res.posts);
-                trace!("Get posts : {:?}", posts);
-                iter_ok::<_, Error>(posts).map(move |post| (tag.clone(), post))
-            })
+        let insta_api = self.insta_api.clone();
+        let update_posts = iter_ok::<_, Error>(hashtags.iter().cycle())
+            .map(move |hashtag| insta_api.get_posts_by_hashtag(&hashtag))
             .flatten();
 
         let post_stream = init_posts.chain(update_posts);
+        let db = self.db.clone();
+        let image_fetcher = self.image_fetcher.clone();
+        let insta_api = self.insta_api.clone();
 
         post_stream
             .filter(move |(_, p)| !db.contains_post(&p.id))
             .and_then(move |(hashtag, p)| {
-                debug!("New post : {:?}", p);
-                insta_api2.get_post_by_id(&p.id).map(|post| (hashtag, post))
+                info!("New post : {:?}", p);
+                insta_api.get_post_by_id(&p.id).map(|post| (hashtag, post))
             })
             .and_then(move |(hashtag, p)| {
                 image_fetcher
@@ -73,28 +57,5 @@ impl InstaFeeder {
                     .and_then(|img_fut| img_fut)
                     .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
             })
-    }
-}
-
-struct HashtagCycle {
-    hashtags: Arc<Vec<String>>,
-    next_idx: usize,
-}
-
-impl HashtagCycle {
-    pub fn new(hashtags: Arc<Vec<String>>) -> HashtagCycle {
-        HashtagCycle {
-            hashtags: hashtags,
-            next_idx: 0,
-        }
-    }
-
-    pub fn next(&mut self) -> &str {
-        let hashtag = &self.hashtags[self.next_idx];
-        self.next_idx += 1;
-        if !(self.next_idx < self.hashtags.len()) {
-            self.next_idx = 0;
-        }
-        hashtag
     }
 }

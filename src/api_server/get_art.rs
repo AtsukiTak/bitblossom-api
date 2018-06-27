@@ -3,6 +3,7 @@ use rocket::{State, response::status::NotFound};
 use rocket_contrib::Json;
 
 use mosaic::MosaicArt;
+use insta::HashtagList;
 use worker::{WorkerId, WorkerManager};
 
 // =================================
@@ -37,7 +38,7 @@ fn construct_response(art: Arc<MosaicArt>) -> MosaicArtResponse {
             user_name: post.user_name.clone(),
         })
         .collect();
-    let hashtags = art.hashtags.as_ref().clone();
+    let hashtags = art.hashtags.clone();
     MosaicArtResponse {
         mosaic_art: mosaic_art,
         piece_posts: piece_posts,
@@ -49,7 +50,7 @@ fn construct_response(art: Arc<MosaicArt>) -> MosaicArtResponse {
 pub struct MosaicArtResponse {
     mosaic_art: String, // base64 encoded,
     piece_posts: Vec<InstaPostResponse>,
-    insta_hashtags: Vec<String>,
+    insta_hashtags: HashtagList,
 }
 
 #[derive(Serialize)]
