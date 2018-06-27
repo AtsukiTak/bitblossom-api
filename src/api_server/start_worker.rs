@@ -2,11 +2,11 @@ use std::sync::Mutex;
 use rocket::{State, response::status::{BadRequest, Created}};
 use rocket_contrib::Json;
 
-use images::{Image, MultipleOf, Size, SizedImage, SmallerThan,
-             size::{Size100x100, Size1500x1500, Size3000x3000, Size30x30, Size50x50}};
+use images::{Image, MultipleOf, Size, SizedImage, SmallerThan, size::{Size3000x3000, Size30x30}};
 use worker::{WorkerId, WorkerManager};
 use mosaic::MosaicArtGenerator;
 use error::Error;
+use super::{OriginImageSize, PieceImageSize};
 
 const HOST: &str = "";
 
@@ -17,7 +17,7 @@ const HOST: &str = "";
 #[post("/worker", format = "application/json", data = "<json>")]
 fn handler(
     json: Json<RawStartWorkerOption>,
-    worker_manager: State<Mutex<WorkerManager>>,
+    worker_manager: State<Mutex<WorkerManager<OriginImageSize, PieceImageSize>>>,
 ) -> Result<Created<String>, BadRequest<()>> {
     let option = StartWorkerOption::from(json.into_inner()).map_err(|_| BadRequest(None))?;
 
@@ -29,6 +29,7 @@ fn handler(
     let origin_size = (option.origin.width(), option.origin.height());
 
     let id = match (origin_size, option.piece_size) {
+        /*
         ((1500, 1500), Some((30, 30))) => start_worker::<Size1500x1500, Size30x30>(
             SizedImage::new(option.origin).unwrap(),
             option.hashtags,
@@ -44,11 +45,13 @@ fn handler(
             option.hashtags,
             worker_manager,
         ),
+        */
         ((3000, 3000), Some((30, 30))) => start_worker::<Size3000x3000, Size30x30>(
             SizedImage::new(option.origin).unwrap(),
             option.hashtags,
             worker_manager,
         ),
+        /*
         ((3000, 3000), Some((50, 50))) => start_worker::<Size3000x3000, Size50x50>(
             SizedImage::new(option.origin).unwrap(),
             option.hashtags,
@@ -64,6 +67,7 @@ fn handler(
             option.hashtags,
             worker_manager,
         ),
+        */
         _ => return Err(BadRequest(None)),
     };
 
@@ -74,7 +78,7 @@ fn handler(
 fn start_worker<S, SS>(
     origin: SizedImage<S>,
     hashtags: Vec<String>,
-    worker_manager: State<Mutex<WorkerManager>>,
+    worker_manager: State<Mutex<WorkerManager<S, SS>>>,
 ) -> WorkerId
 where
     S: Size + MultipleOf<SS>,

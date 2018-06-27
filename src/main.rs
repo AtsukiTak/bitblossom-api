@@ -39,6 +39,7 @@ pub mod api_server;
 pub mod worker;
 pub mod error;
 pub mod db;
+pub mod post;
 
 use self::db::Mongodb;
 

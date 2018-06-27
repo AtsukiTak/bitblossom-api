@@ -3,8 +3,11 @@ use rocket::{State, response::status::NotFound};
 use rocket_contrib::Json;
 
 use mosaic::MosaicArt;
-use insta::HashtagList;
+use post::{HashtagList, Post};
+use images::Size;
 use worker::{WorkerId, WorkerManager};
+
+use super::{OriginImageSize, PieceImageSize};
 
 // =================================
 // get mosaic art API
@@ -13,7 +16,7 @@ use worker::{WorkerId, WorkerManager};
 #[get("/<id>")]
 fn handler(
     id: u64,
-    worker_manager: State<Mutex<WorkerManager>>,
+    worker_manager: State<Mutex<WorkerManager<OriginImageSize, PieceImageSize>>>,
 ) -> Result<Json<MosaicArtResponse>, NotFound<&'static str>> {
     match worker_manager
         .inner()
@@ -26,7 +29,11 @@ fn handler(
     }
 }
 
-fn construct_response(art: Arc<MosaicArt>) -> MosaicArtResponse {
+fn construct_response<S, SS>(art: Arc<MosaicArt<S, SS>>) -> MosaicArtResponse
+where
+    S: Size,
+    SS: Size,
+{
     let mosaic_art = {
         let png_img = art.image.to_png_bytes();
         ::base64::encode(png_img.as_slice())
@@ -35,7 +42,7 @@ fn construct_response(art: Arc<MosaicArt>) -> MosaicArtResponse {
         .iter()
         .map(|post| InstaPostResponse {
             post_id: post.post_id.0.clone(),
-            user_name: post.user_name.clone(),
+            user_name: post.user_name().into(),
         })
         .collect();
     let hashtags = art.hashtags.clone();

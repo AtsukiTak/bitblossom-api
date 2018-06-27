@@ -8,14 +8,18 @@ use db::Mongodb;
 use images::size::{MultipleOf, Size, SmallerThan};
 use mosaic::{MosaicArt, MosaicArtGenerator};
 
-pub struct WorkerManager {
+pub struct WorkerManager<S, SS> {
     insta_feeder: Arc<InstaFeeder>,
     db: Mongodb,
-    container: WorkerContainer,
+    container: WorkerContainer<S, SS>,
 }
 
-impl WorkerManager {
-    pub fn new(db: Mongodb) -> WorkerManager {
+impl<S, SS> WorkerManager<S, SS>
+where
+    S: Size + MultipleOf<SS>,
+    SS: Size + SmallerThan<S>,
+{
+    pub fn new(db: Mongodb) -> WorkerManager<S, SS> {
         let feeder = Arc::new(InstaFeeder::new(db.clone()));
         WorkerManager {
             insta_feeder: feeder,
@@ -24,16 +28,12 @@ impl WorkerManager {
         }
     }
 
-    pub fn start_worker<S, SS>(&mut self, generator: MosaicArtGenerator<S, SS>) -> WorkerId
-    where
-        S: Size + MultipleOf<SS>,
-        SS: Size + SmallerThan<S>,
-    {
+    pub fn start_worker(&mut self, generator: MosaicArtGenerator<S, SS>) -> WorkerId {
         let worker = Worker::start(self.insta_feeder.clone(), self.db.clone(), generator);
         self.container.add(worker)
     }
 
-    pub fn get_worker(&self, id: WorkerId) -> Option<&Worker> {
+    pub fn get_worker(&self, id: WorkerId) -> Option<&Worker<S, SS>> {
         self.container.get(id)
     }
 
@@ -51,21 +51,21 @@ impl WorkerManager {
     }
 }
 
-pub struct Worker {
-    current_art: Arc<Mutex<Arc<MosaicArt>>>,
+pub struct Worker<S, SS> {
+    current_art: Arc<Mutex<Arc<MosaicArt<S, SS>>>>,
     shutdown_tx: Sender<()>,
 }
 
-impl Worker {
-    fn start<S, SS>(
+impl<S, SS> Worker<S, SS>
+where
+    S: Size + MultipleOf<SS>,
+    SS: Size + SmallerThan<S>,
+{
+    fn start(
         insta_feeder: Arc<InstaFeeder>,
         db: Mongodb,
         mut generator: MosaicArtGenerator<S, SS>,
-    ) -> Worker
-    where
-        S: Size + MultipleOf<SS>,
-        SS: Size + SmallerThan<S>,
-    {
+    ) -> Worker<S, SS> {
         // Create some thread sahred items
         let art = Arc::new(Mutex::new(Arc::new(generator.current_art())));
         let art2 = art.clone();
@@ -88,7 +88,7 @@ impl Worker {
         }
     }
 
-    pub fn get_art(&self) -> Arc<MosaicArt> {
+    pub fn get_art(&self) -> Arc<MosaicArt<S, SS>> {
         self.current_art.lock().unwrap().clone()
     }
 
@@ -106,30 +106,30 @@ impl ::std::fmt::Display for WorkerId {
     }
 }
 
-struct WorkerContainer {
-    container: HashMap<u64, Worker, NothingU64HasherBuilder>,
+struct WorkerContainer<S, SS> {
+    container: HashMap<u64, Worker<S, SS>, NothingU64HasherBuilder>,
     id_gen: IdGenerator,
 }
 
-impl WorkerContainer {
-    fn new() -> WorkerContainer {
+impl<S, SS> WorkerContainer<S, SS> {
+    fn new() -> WorkerContainer<S, SS> {
         WorkerContainer {
             container: HashMap::with_hasher(NothingU64HasherBuilder),
             id_gen: IdGenerator::new(),
         }
     }
 
-    fn add(&mut self, worker: Worker) -> WorkerId {
+    fn add(&mut self, worker: Worker<S, SS>) -> WorkerId {
         let id = self.id_gen.next_id();
         self.container.insert(id, worker);
         WorkerId(id)
     }
 
-    fn get(&self, id: WorkerId) -> Option<&Worker> {
+    fn get(&self, id: WorkerId) -> Option<&Worker<S, SS>> {
         self.container.get(&id.0)
     }
 
-    fn take(&mut self, id: WorkerId) -> Option<Worker> {
+    fn take(&mut self, id: WorkerId) -> Option<Worker<S, SS>> {
         self.container.remove(&id.0)
     }
 

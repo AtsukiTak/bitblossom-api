@@ -4,7 +4,7 @@ use mongodb::{Client, ThreadedClient, coll::{Collection, options::FindOptions},
 use bson::{Bson, Document, spec::BinarySubtype};
 
 use images::{Image, Size, SizedImage};
-use insta::{Hashtag, HashtagList, InstaPost, InstaPostId};
+use post::{Hashtag, HashtagList, InstaPost, InstaPostId, Post};
 
 #[derive(Clone)]
 pub struct Mongodb {
@@ -27,10 +27,10 @@ impl Mongodb {
     pub fn insert_one_post<S: Size>(&self, post: &InstaPost<S>) {
         debug!("Insert new insta post into mongodb");
         let doc = doc! {
-            "id": post.meta.post_id.as_str(),
-            "username": post.meta.user_name.as_str(),
-            "image": (BinarySubtype::Generic, post.image.to_png_bytes()),
-            "hashtag": post.meta.hashtag.as_str(),
+            "id": post.post_id.as_str(),
+            "username": post.user_name(),
+            "image": (BinarySubtype::Generic, post.image().to_png_bytes()),
+            "hashtag": post.hashtag().as_str(),
             "inserted_time": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
         };
         self.insta_post
@@ -80,7 +80,7 @@ fn doc_2_post<S: Size>(doc: Document) -> InstaPost<S> {
         let image = Image::from_bytes(binary).unwrap();
         SizedImage::with_resize(image)
     };
-    let username = doc.get_str("username").unwrap().into();
+    let username = doc.get_str("username").unwrap();
     let hashtag = Hashtag::new(doc.get_str("hashtag").unwrap());
-    InstaPost::new(id, username, image, hashtag)
+    InstaPost::new(id, image, username, hashtag)
 }

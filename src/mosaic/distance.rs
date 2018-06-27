@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use images::{MultipleOf, Size, SizedImage, SmallerThan};
-use insta::InstaPost;
+use post::{InstaPost, Post};
 use super::MosaicPiece;
 
 pub type Distance = u64;
@@ -25,7 +25,7 @@ where
     }
 
     pub fn calc_post(&self, post: InstaPost<SS>) -> MosaicPiece<SS> {
-        let vec = self.algo.calc(&post.image);
+        let vec = self.algo.calc(&post.image());
         MosaicPiece {
             insta_post: post,
             distance_vec: vec,

@@ -2,7 +2,8 @@ use std::sync::Arc;
 use futures::{Future, IntoFuture, Stream, stream::iter_ok};
 
 use images::{ImageFetcher, size::{MultipleOf, Size, SmallerThan}};
-use insta::{HashtagList, InstaApi, InstaPost};
+use insta::InstaApi;
+use post::{HashtagList, InstaPost};
 use db::Mongodb;
 use error::Error;
 
@@ -68,7 +69,7 @@ impl InstaFeeder {
                         .fetch_image::<SS>(p.image_url.as_str())
                         .into_future()
                         .and_then(|img_fut| img_fut)
-                        .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
+                        .map(move |img| InstaPost::new(p.id, img, p.user_name, hashtag))
                         .inspect(move |post| db.insert_one_post(post))
                 })
         };

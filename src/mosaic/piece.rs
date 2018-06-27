@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, mem::replace};
 use images::{MultipleOf, Position, Size, SizedImage, SmallerThan};
-use insta::InstaPost;
+use post::InstaPost;
 use super::Distance;
 
 #[derive(Clone, Debug)]
@@ -8,12 +8,6 @@ pub struct MosaicPiece<SS> {
     pub insta_post: InstaPost<SS>,
     // Distance between each origin pieces.
     pub(super) distance_vec: Vec<Distance>,
-}
-
-impl<SS: Size> MosaicPiece<SS> {
-    pub fn get_image(&self) -> &SizedImage<SS> {
-        &self.insta_post.image
-    }
 }
 
 #[derive(Clone, Debug)]

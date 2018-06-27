@@ -5,7 +5,7 @@ use hyper_tls::HttpsConnector;
 use tokio::timer::Delay;
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 
-use insta::{Hashtag, InstaPostId};
+use post::{Hashtag, InstaPostId};
 use error::Error;
 
 const API_INTERVAL_SEC: u64 = 3;
