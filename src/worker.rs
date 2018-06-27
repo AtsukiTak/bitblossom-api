@@ -37,7 +37,7 @@ impl WorkerManager {
         self.container.get(id)
     }
 
-    pub fn get_worker_ids<'a>(&'a mut self) -> impl Iterator<Item = WorkerId> + 'a {
+    pub fn get_worker_ids<'a>(&'a self) -> impl Iterator<Item = WorkerId> + 'a {
         self.container.ids()
     }
 
@@ -66,13 +66,6 @@ impl Worker {
         S: Size + MultipleOf<SS>,
         SS: Size + SmallerThan<S>,
     {
-        // Initialize
-        let piece_n = (S::WIDTH * S::HEIGHT) / (SS::WIDTH * SS::HEIGHT);
-        let mut init_posts = db.find_posts_by_hashtags(&generator.hashtags(), piece_n as i64);
-        for post in init_posts.drain(..) {
-            generator.apply_post(post);
-        }
-
         // Create some thread sahred items
         let art = Arc::new(Mutex::new(Arc::new(generator.current_art())));
         let art2 = art.clone();
