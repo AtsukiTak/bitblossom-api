@@ -13,7 +13,7 @@ use super::{OriginImageSize, PieceImageSize};
 // get mosaic art API
 // =================================
 
-#[get("/<id>")]
+#[get("/worker/<id>/mosaic_art")]
 fn handler(
     id: u64,
     worker_manager: State<Mutex<WorkerManager<OriginImageSize, PieceImageSize>>>,
