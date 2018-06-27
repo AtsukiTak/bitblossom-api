@@ -5,6 +5,7 @@ use futures::{Future, Stream, sync::oneshot::{self, Sender}};
 
 use insta::InstaFeeder;
 use db::Mongodb;
+use post::GenericPost;
 use images::size::{MultipleOf, Size, SmallerThan};
 use mosaic::{MosaicArt, MosaicArtGenerator};
 
@@ -74,7 +75,8 @@ where
         ::std::thread::spawn(move || {
             let post_stream = insta_feeder.run(&generator.hashtags());
             let running = post_stream.for_each(move |post| {
-                let new_art = generator.apply_post(post);
+                let generic_post = GenericPost::InstaPost(post);
+                let new_art = generator.apply_post(generic_post);
                 *art2.lock().unwrap().deref_mut() = Arc::new(new_art);
                 Ok(())
             });

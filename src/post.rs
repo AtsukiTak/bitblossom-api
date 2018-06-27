@@ -55,7 +55,7 @@ pub struct InstaPost<S> {
     hashtag: Hashtag,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct InstaPostId(pub String);
 
 impl InstaPostId {

@@ -3,7 +3,7 @@ use rocket::{State, response::status::NotFound};
 use rocket_contrib::Json;
 
 use mosaic::MosaicArt;
-use post::{HashtagList, Post};
+use post::{BluummPost, GenericPost, Hashtag, HashtagList, InstaPost, InstaPostId, Post};
 use images::Size;
 use worker::{WorkerId, WorkerManager};
 
@@ -40,10 +40,7 @@ where
     };
     let piece_posts = art.posts
         .iter()
-        .map(|post| InstaPostResponse {
-            post_id: post.post_id.0.clone(),
-            user_name: post.user_name().into(),
-        })
+        .map(|post| PostResponse::from(post))
         .collect();
     let hashtags = art.hashtags.clone();
     MosaicArtResponse {
@@ -56,12 +53,67 @@ where
 #[derive(Serialize)]
 pub struct MosaicArtResponse {
     mosaic_art: String, // base64 encoded,
-    piece_posts: Vec<InstaPostResponse>,
+    piece_posts: Vec<PostResponse>,
     insta_hashtags: HashtagList,
 }
 
 #[derive(Serialize)]
-pub struct InstaPostResponse {
-    post_id: String,
+pub enum PostResponse {
+    BluummPost(BluummPostResponse),
+    InstaPost(InstaPostResponse),
+}
+
+impl PostResponse {
+    fn from<SS: Size>(post: &GenericPost<SS>) -> PostResponse {
+        match post {
+            &GenericPost::BluummPost(ref post) => {
+                PostResponse::BluummPost(BluummPostResponse::from(post))
+            }
+            &GenericPost::InstaPost(ref post) => {
+                PostResponse::InstaPost(InstaPostResponse::from(post))
+            }
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct BluummPostResponse {
+    image: String,
     user_name: String,
+    hashtag: Hashtag,
+}
+
+impl BluummPostResponse {
+    fn from<SS: Size>(post: &BluummPost<SS>) -> BluummPostResponse {
+        let image = ::base64::encode(post.image().to_png_bytes().as_slice());
+        let user_name = post.user_name().into();
+        let hashtag = post.hashtag().clone();
+        BluummPostResponse {
+            image: image,
+            user_name: user_name,
+            hashtag: hashtag,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct InstaPostResponse {
+    post_id: InstaPostId,
+    image: String,
+    user_name: String,
+    hashtag: Hashtag,
+}
+
+impl InstaPostResponse {
+    fn from<SS: Size>(post: &InstaPost<SS>) -> InstaPostResponse {
+        let image = ::base64::encode(post.image().to_png_bytes().as_slice());
+        let user_name = post.user_name().into();
+        let hashtag = post.hashtag().clone();
+        InstaPostResponse {
+            post_id: post.post_id.clone(),
+            image: image,
+            user_name: user_name,
+            hashtag: hashtag,
+        }
+    }
 }

@@ -1,11 +1,11 @@
 use std::{marker::PhantomData, mem::replace};
 use images::{MultipleOf, Position, Size, SizedImage, SmallerThan};
-use post::InstaPost;
+use post::GenericPost;
 use super::Distance;
 
 #[derive(Clone, Debug)]
 pub struct MosaicPiece<SS> {
-    pub insta_post: InstaPost<SS>,
+    pub post: GenericPost<SS>,
     // Distance between each origin pieces.
     pub(super) distance_vec: Vec<Distance>,
 }

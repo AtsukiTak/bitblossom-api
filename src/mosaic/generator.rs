@@ -1,10 +1,10 @@
 use images::{MultipleOf, Size, SizedImage, SmallerThan};
-use post::{HashtagList, InstaPost, Post};
+use post::{HashtagList, GenericPost, Post};
 use super::{DistanceCalcAlgo, MosaicPieceVec};
 
 pub struct MosaicArt<S, SS> {
     pub image: SizedImage<S>,
-    pub posts: Vec<InstaPost<SS>>,
+    pub posts: Vec<GenericPost<SS>>,
     pub hashtags: HashtagList,
 }
 
@@ -47,17 +47,17 @@ where
             image: self.current_art.clone(),
             posts: self.pieces
                 .iter()
-                .map(|piece| piece.insta_post.clone())
+                .map(|piece| piece.post.clone())
                 .collect(),
             hashtags: self.hashtags.clone(),
         }
     }
 
-    pub fn apply_post(&mut self, post: InstaPost<SS>) -> MosaicArt<S, SS> {
+    pub fn apply_post(&mut self, post: GenericPost<SS>) -> MosaicArt<S, SS> {
         // calc distance between each original image's pieces
         let piece = self.calc_algo.calc_post(post);
         let (pos, _replaced) = self.pieces.replace_piece(piece.clone());
-        self.current_art.overpaint_by(piece.insta_post.image(), pos);
+        self.current_art.overpaint_by(piece.post.image(), pos);
 
         self.current_art()
     }
