@@ -53,6 +53,8 @@ where
     }
 }
 
+const FILL_PROCESS_BOOST: usize = 4;
+
 pub struct Worker<S, SS> {
     current_art: Arc<Mutex<Arc<MosaicArt<S, SS>>>>,
     bluumm_post_tx: UnboundedSender<BluummPost<SS>>,
@@ -75,7 +77,6 @@ where
         let mut init_insta_posts = db.find_insta_posts_by_hashtags(&generator.hashtags(), piece_n);
         let mut init_bluumm_posts =
             db.find_bluumm_posts_by_hashtags(&generator.hashtags(), piece_n);
-        let init_num = init_insta_posts.len() + init_bluumm_posts.len();
         let init_insta_posts_iter = init_insta_posts
             .drain(..)
             .map(|p| GenericPost::InstaPost(p));
@@ -96,15 +97,19 @@ where
         let art2 = art.clone();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let (bluumm_post_tx, bluumm_post_rx) = mpsc::unbounded();
+        let hashtags = generator.hashtags();
+        let generator = Arc::new(Mutex::new(generator));
+        let generator2 = generator.clone();
 
         ::std::thread::spawn(move || {
             let post_stream = {
                 let insta_post_stream = {
                     let init_insta_post_stream = insta_feeder
-                        .get_bunch_of_posts(&generator.hashtags())
-                        .take(piece_n as u64 - init_num as u64);
-                    let update_insta_post_stream =
-                        insta_feeder.get_update_posts(&generator.hashtags());
+                        .get_bunch_of_posts(&hashtags)
+                        .take_while(move |_| {
+                            Ok::<_, Error>(!generator.lock().unwrap().has_enough_pieces())
+                        });
+                    let update_insta_post_stream = insta_feeder.get_update_posts(&hashtags);
                     init_insta_post_stream
                         .chain(update_insta_post_stream)
                         .map(|p| GenericPost::InstaPost(p))
@@ -116,8 +121,16 @@ where
             };
 
             let running = post_stream.for_each(move |post| {
-                let new_art = generator.apply_post(post);
-                *art2.lock().unwrap().deref_mut() = Arc::new(new_art);
+                let mut generator = generator2.lock().unwrap();
+                // Copy a new arrived post if art does not have enough pieces.
+                let boost = generator.has_enough_pieces() as usize * FILL_PROCESS_BOOST;
+                for _ in 0..boost {
+                    let _art = generator.apply_post(post.clone());
+                }
+
+                // Always apply at least one time.
+                let art = generator.apply_post(post);
+                *art2.lock().unwrap().deref_mut() = Arc::new(art); // replace old art with new art
                 Ok(())
             });
             let shutdown = running.select2(shutdown_rx).map_err(|_e| ()).map(|_| ());

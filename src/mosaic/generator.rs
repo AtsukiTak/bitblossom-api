@@ -61,4 +61,8 @@ where
 
         self.current_art()
     }
+
+    pub fn has_enough_pieces(&self) -> bool {
+        panic!();
+    }
 }
