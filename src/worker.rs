@@ -74,7 +74,6 @@ impl Worker {
         ::std::thread::spawn(move || {
             let post_stream = insta_feeder.run(&generator.hashtags());
             let running = post_stream.for_each(move |post| {
-                db.insert_one_post(&post);
                 let new_art = generator.apply_post(post);
                 *art2.lock().unwrap().deref_mut() = Arc::new(new_art);
                 Ok(())

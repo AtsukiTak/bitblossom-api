@@ -52,6 +52,7 @@ impl InstaFeeder {
 
             let post_stream = init_posts.chain(update_posts);
             let db = self.db.clone();
+            let db2 = self.db.clone();
             let image_fetcher = self.image_fetcher.clone();
             let insta_api = self.insta_api.clone();
 
@@ -62,11 +63,13 @@ impl InstaFeeder {
                     insta_api.get_post_by_id(&p.id).map(|post| (hashtag, post))
                 })
                 .and_then(move |(hashtag, p)| {
+                    let db = db2.clone();
                     image_fetcher
                         .fetch_image::<SS>(p.image_url.as_str())
                         .into_future()
                         .and_then(|img_fut| img_fut)
                         .map(move |img| InstaPost::new(p.id, p.user_name, img, hashtag))
+                        .inspect(move |post| db.insert_one_post(post))
                 })
         };
 
