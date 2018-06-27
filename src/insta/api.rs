@@ -8,6 +8,8 @@ use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 use insta::InstaPostId;
 use error::Error;
 
+const API_INTERVAL_SEC: u64 = 3;
+
 pub struct InstaApi {
     delay: Duration,
     client: Client<HttpsConnector<HttpConnector>>,
@@ -16,7 +18,7 @@ pub struct InstaApi {
 impl InstaApi {
     pub fn new() -> InstaApi {
         InstaApi {
-            delay: Duration::new(3, 0),
+            delay: Duration::new(API_INTERVAL_SEC, 0),
             client: Client::builder().build(HttpsConnector::new(1).unwrap()),
         }
     }
