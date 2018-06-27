@@ -69,6 +69,28 @@ where
         db: Mongodb,
         mut generator: MosaicArtGenerator<S, SS>,
     ) -> Worker<S, SS> {
+        // Initialize
+        info!("Initializing mosaic art...");
+        let piece_n = ((S::WIDTH * S::HEIGHT) / (SS::WIDTH * SS::HEIGHT)) as i64;
+        let mut init_insta_posts = db.find_insta_posts_by_hashtags(&generator.hashtags(), piece_n);
+        let mut init_bluumm_posts =
+            db.find_bluumm_posts_by_hashtags(&generator.hashtags(), piece_n);
+        let init_num = init_insta_posts.len() + init_bluumm_posts.len();
+        let init_insta_posts_iter = init_insta_posts
+            .drain(..)
+            .map(|p| GenericPost::InstaPost(p));
+        let init_bluumm_posts_iter = init_bluumm_posts
+            .drain(..)
+            .map(|p| GenericPost::BluummPost(p));
+
+        let init_posts = init_bluumm_posts_iter // BluummPost have priority over InstaPost
+            .chain(init_insta_posts_iter)
+            .take(piece_n as usize);
+        for post in init_posts {
+            let _applied = generator.apply_post(post);
+        }
+        info!("Initialized!!");
+
         // Create some thread sahred items
         let art = Arc::new(Mutex::new(Arc::new(generator.current_art())));
         let art2 = art.clone();
@@ -76,13 +98,22 @@ where
         let (bluumm_post_tx, bluumm_post_rx) = mpsc::unbounded();
 
         ::std::thread::spawn(move || {
-            let insta_post_stream = insta_feeder
-                .run(&generator.hashtags())
-                .map(|p| GenericPost::InstaPost(p));
-            let bluumm_post_stream = bluumm_post_rx
-                .map(|p| GenericPost::BluummPost(p))
-                .then(|res| Ok::<_, Error>(res.unwrap()));
-            let post_stream = insta_post_stream.select(bluumm_post_stream);
+            let post_stream = {
+                let insta_post_stream = {
+                    let init_insta_post_stream = insta_feeder
+                        .get_bunch_of_posts(&generator.hashtags())
+                        .take(piece_n as u64 - init_num as u64);
+                    let update_insta_post_stream =
+                        insta_feeder.get_update_posts(&generator.hashtags());
+                    init_insta_post_stream
+                        .chain(update_insta_post_stream)
+                        .map(|p| GenericPost::InstaPost(p))
+                };
+                let bluumm_post_stream = bluumm_post_rx
+                    .map(|p| GenericPost::BluummPost(p))
+                    .then(|res| Ok::<_, Error>(res.unwrap()));
+                insta_post_stream.select(bluumm_post_stream)
+            };
 
             let running = post_stream.for_each(move |post| {
                 let new_art = generator.apply_post(post);
