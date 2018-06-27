@@ -133,7 +133,7 @@ impl<S: Size> Post for GenericPost<S> {
 pub struct Hashtag(pub Arc<String>);
 
 impl Hashtag {
-    pub fn new(s: &str) -> Hashtag {
+    pub fn new<S: Into<String>>(s: S) -> Hashtag {
         Hashtag(Arc::new(s.into()))
     }
 
@@ -156,7 +156,7 @@ pub struct HashtagList(pub Arc<Vec<Hashtag>>);
 
 impl HashtagList {
     pub fn new(vec: Vec<String>) -> HashtagList {
-        let hashtags = vec.iter().map(|s| Hashtag::new(s)).collect();
+        let hashtags = vec.iter().map(|s| Hashtag::new(s.as_str())).collect();
         HashtagList(Arc::new(hashtags))
     }
 

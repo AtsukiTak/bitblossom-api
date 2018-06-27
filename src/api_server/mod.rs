@@ -1,6 +1,7 @@
 mod start_worker;
 mod stop_worker;
 mod get_art;
+mod add_post;
 
 use std::sync::Mutex;
 use worker::WorkerManager;
@@ -21,7 +22,8 @@ pub fn run(mongodb: Mongodb) {
             routes![
                 start_worker::handler,
                 get_art::handler,
-                stop_worker::handler
+                stop_worker::handler,
+                add_post::handler,
             ],
         )
         .attach(cors)

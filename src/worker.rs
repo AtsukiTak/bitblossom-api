@@ -1,13 +1,14 @@
 use std::{mem, collections::HashMap, hash::{BuildHasher, Hasher}, ops::DerefMut,
           sync::{Arc, Mutex}};
 use rand::{FromEntropy, RngCore, prng::XorShiftRng};
-use futures::{Future, Stream, sync::oneshot::{self, Sender}};
+use futures::{Future, Stream, sync::{mpsc::{self, UnboundedSender}, oneshot::{self, Sender}}};
 
 use insta::InstaFeeder;
 use db::Mongodb;
-use post::GenericPost;
+use post::{BluummPost, GenericPost};
 use images::size::{MultipleOf, Size, SmallerThan};
 use mosaic::{MosaicArt, MosaicArtGenerator};
+use error::Error;
 
 pub struct WorkerManager<S, SS> {
     insta_feeder: Arc<InstaFeeder>,
@@ -54,6 +55,7 @@ where
 
 pub struct Worker<S, SS> {
     current_art: Arc<Mutex<Arc<MosaicArt<S, SS>>>>,
+    bluumm_post_tx: UnboundedSender<BluummPost<SS>>,
     shutdown_tx: Sender<()>,
 }
 
@@ -70,28 +72,40 @@ where
         // Create some thread sahred items
         let art = Arc::new(Mutex::new(Arc::new(generator.current_art())));
         let art2 = art.clone();
-        let (tx, rx) = oneshot::channel();
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (bluumm_post_tx, bluumm_post_rx) = mpsc::unbounded();
 
         ::std::thread::spawn(move || {
-            let post_stream = insta_feeder.run(&generator.hashtags());
+            let insta_post_stream = insta_feeder
+                .run(&generator.hashtags())
+                .map(|p| GenericPost::InstaPost(p));
+            let bluumm_post_stream = bluumm_post_rx
+                .map(|p| GenericPost::BluummPost(p))
+                .then(|res| Ok::<_, Error>(res.unwrap()));
+            let post_stream = insta_post_stream.select(bluumm_post_stream);
+
             let running = post_stream.for_each(move |post| {
-                let generic_post = GenericPost::InstaPost(post);
-                let new_art = generator.apply_post(generic_post);
+                let new_art = generator.apply_post(post);
                 *art2.lock().unwrap().deref_mut() = Arc::new(new_art);
                 Ok(())
             });
-            let shutdown = running.select2(rx).map_err(|_e| ()).map(|_| ());
+            let shutdown = running.select2(shutdown_rx).map_err(|_e| ()).map(|_| ());
             ::tokio::run(shutdown);
         });
 
         Worker {
             current_art: art,
-            shutdown_tx: tx,
+            bluumm_post_tx: bluumm_post_tx,
+            shutdown_tx: shutdown_tx,
         }
     }
 
     pub fn get_art(&self) -> Arc<MosaicArt<S, SS>> {
         self.current_art.lock().unwrap().clone()
+    }
+
+    pub fn add_bluumm_post(&self, post: BluummPost<SS>) {
+        self.bluumm_post_tx.unbounded_send(post).unwrap();
     }
 
     fn stop(self) {
