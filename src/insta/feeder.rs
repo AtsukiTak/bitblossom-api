@@ -32,7 +32,7 @@ impl InstaFeeder {
     {
         // Existed posts
         let piece_n = (S::WIDTH * S::HEIGHT) / (SS::WIDTH * SS::HEIGHT);
-        let db_posts = self.db.find_posts_by_hashtags(hashtags, piece_n as i64);
+        let db_posts = self.db.find_insta_posts_by_hashtags(hashtags, piece_n as i64);
         let db_posts_len = db_posts.len() as u64;
 
         // New posts fetched by instagram api.
@@ -58,7 +58,7 @@ impl InstaFeeder {
             let insta_api = self.insta_api.clone();
 
             post_stream
-                .filter(move |(_, p)| !db.contains_post(&p.id))
+                .filter(move |(_, p)| !db.contains_insta_post(&p.id))
                 .and_then(move |(hashtag, p)| {
                     info!("New post : {:?}", p);
                     insta_api.get_post_by_id(&p.id).map(|post| (hashtag, post))
@@ -70,7 +70,7 @@ impl InstaFeeder {
                         .into_future()
                         .and_then(|img_fut| img_fut)
                         .map(move |img| InstaPost::new(p.id, img, p.user_name, hashtag))
-                        .inspect(move |post| db.insert_one_post(post))
+                        .inspect(move |post| db.insert_one_insta_post(post))
                 })
         };
 
