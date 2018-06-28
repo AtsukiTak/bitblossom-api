@@ -62,12 +62,12 @@ fn handler(
             option.hashtags,
             worker_manager,
         ),
-        ((3000, 3000), None) => start_worker::<Size3000x3000, Size50x50>(
+        */
+        ((3000, 3000), None) => start_worker::<Size3000x3000, Size30x30>(
             SizedImage::new(option.origin).unwrap(),
             option.hashtags,
             worker_manager,
         ),
-        */
         _ => return Err(BadRequest(None)),
     };
 
