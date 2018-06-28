@@ -191,8 +191,9 @@ impl Iterator for HashtagIterator {
     type Item = Hashtag;
     fn next(&mut self) -> Option<Hashtag> {
         if self.idx < self.list.len() {
+            let hashtag = self.list.0[self.idx].clone();
             self.idx += 1;
-            Some(self.list.0[self.idx].clone())
+            Some(hashtag)
         } else {
             None
         }
