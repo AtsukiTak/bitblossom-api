@@ -1,5 +1,5 @@
 use images::{MultipleOf, Size, SizedImage, SmallerThan};
-use post::{HashtagList, GenericPost, Post};
+use post::{GenericPost, HashtagList, Post};
 use super::{DistanceCalcAlgo, MosaicPieceVec};
 
 pub struct MosaicArt<S, SS> {
@@ -45,10 +45,7 @@ where
     pub fn current_art(&self) -> MosaicArt<S, SS> {
         MosaicArt {
             image: self.current_art.clone(),
-            posts: self.pieces
-                .iter()
-                .map(|piece| piece.post.clone())
-                .collect(),
+            posts: self.pieces.iter().map(|piece| piece.post.clone()).collect(),
             hashtags: self.hashtags.clone(),
         }
     }
@@ -63,6 +60,9 @@ where
     }
 
     pub fn has_enough_pieces(&self) -> bool {
-        panic!();
+        !self.pieces
+            .distance_vec
+            .iter()
+            .any(|d| d == Distance::max_valud())
     }
 }
