@@ -1,6 +1,6 @@
 use images::{MultipleOf, Size, SizedImage, SmallerThan};
 use post::{GenericPost, HashtagList, Post};
-use super::{DistanceCalcAlgo, MosaicPieceVec};
+use super::{DistanceCalcAlgo, MosaicPieceVec, Distance};
 
 pub struct MosaicArt<S, SS> {
     pub image: SizedImage<S>,
@@ -61,8 +61,8 @@ where
 
     pub fn has_enough_pieces(&self) -> bool {
         !self.pieces
-            .distance_vec
+            .pieces
             .iter()
-            .any(|d| d == Distance::max_valud())
+            .any(|(d, _)| *d == Distance::max_value())
     }
 }

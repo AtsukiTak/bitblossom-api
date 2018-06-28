@@ -12,7 +12,7 @@ pub struct MosaicPiece<SS> {
 
 #[derive(Clone, Debug)]
 pub struct MosaicPieceVec<S, SS> {
-    pieces: Vec<(Distance, Option<MosaicPiece<SS>>)>,
+    pub(super) pieces: Vec<(Distance, Option<MosaicPiece<SS>>)>,
     _origin_size: PhantomData<S>,
 }
 
