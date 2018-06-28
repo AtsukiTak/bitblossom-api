@@ -1,6 +1,6 @@
 [package]
 name = "bluumm-api"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["AtsukiTak <takatomgoo@gmail.com>"]
 
 [dependencies]
