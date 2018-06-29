@@ -133,8 +133,15 @@ where
                 *art2.lock().unwrap().deref_mut() = Arc::new(art); // replace old art with new art
                 Ok(())
             });
-            let shutdown = running.select2(shutdown_rx).map_err(|_e| ()).map(|_| ());
-            ::tokio::run(shutdown);
+
+            // shutdown_tx is never dropped until shutdown.
+            let shutdown = shutdown_rx.then(|res| Ok::<_, Error>(res.unwrap()));
+
+            let work = running
+                .select(shutdown)
+                .map(|_| ())
+                .map_err(|(e, _)| error!("Error while working!! : {:?}", e));
+            ::tokio::run(work);
         });
 
         Worker {
