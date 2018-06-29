@@ -1,7 +1,7 @@
 use images::{MultipleOf, Size, SizedImage, SmallerThan};
 use post::{GenericPost, HashtagList, Post};
 use util::{Id, IdGenerator};
-use super::{Distance, DistanceCalcAlgo, MosaicPieceVec};
+use super::{Distance, DistanceFunc, MeanGrayscale, MosaicPiece, MosaicPieceVec};
 
 pub struct MosaicArt<S, SS> {
     pub id: Id, // Used by api_server to determine whether rerurn cached response or construct a new response.
@@ -26,11 +26,11 @@ impl<S, SS> MosaicArt<S, SS> {
     }
 }
 
-pub struct MosaicArtGenerator<S, SS> {
+pub struct MosaicArtGenerator<S, SS, D = MeanGrayscale<S, SS>> {
     // immutable
     _origin_image: SizedImage<S>,
     hashtags: HashtagList,
-    calc_algo: DistanceCalcAlgo<S, SS>,
+    distance_f: D,
     id_gen: IdGenerator,
 
     // mutable
@@ -49,7 +49,7 @@ where
     ) -> (MosaicArtGenerator<S, SS>, MosaicArt<S, SS>) {
         let init_image = SizedImage::clear_image();
         let pieces = MosaicPieceVec::with_origin_image(&origin);
-        let calc_algo = DistanceCalcAlgo::new(&origin);
+        let distance_f = MeanGrayscale::from_origin(&origin);
         let mut id_gen = IdGenerator::new();
 
         let init_art = MosaicArt::new(
@@ -61,7 +61,7 @@ where
         let generator = MosaicArtGenerator {
             _origin_image: origin,
             hashtags: hashtags.clone(),
-            calc_algo: calc_algo,
+            distance_f: distance_f,
             id_gen: IdGenerator::new(),
             current_img: init_image,
             pieces: pieces,
@@ -69,14 +69,24 @@ where
 
         (generator, init_art)
     }
+}
 
+impl<S, SS, D> MosaicArtGenerator<S, SS, D>
+where
+    S: Size + MultipleOf<SS>,
+    SS: Size + SmallerThan<S>,
+    D: DistanceFunc<S, SS>,
+{
     pub fn hashtags(&self) -> HashtagList {
         self.hashtags.clone()
     }
-
     pub fn apply_post(&mut self, post: GenericPost<SS>) -> MosaicArt<S, SS> {
         // calc distance between each original image's pieces
-        let piece = self.calc_algo.calc_post(post);
+        let distance_vec = self.distance_f.distance_vec(&post.image());
+        let piece = MosaicPiece {
+            post: post,
+            distance_vec: distance_vec,
+        };
         let (pos, _replaced) = self.pieces.replace_piece(piece.clone());
         self.current_img.overpaint_by(piece.post.image(), pos);
 

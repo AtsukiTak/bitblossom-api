@@ -80,7 +80,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bluumm-api"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "base64 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bson 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
