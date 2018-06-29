@@ -14,14 +14,12 @@ const API_COOLING_SEC: u64 = 30;
 
 pub struct InstaApi {
     delay: Duration,
-    client: Client<HttpsConnector<HttpConnector>>,
 }
 
 impl InstaApi {
     pub fn new() -> InstaApi {
         InstaApi {
             delay: Duration::new(API_INTERVAL_SEC, 0),
-            client: Client::builder().build(HttpsConnector::new(1).unwrap()),
         }
     }
 
@@ -30,7 +28,7 @@ impl InstaApi {
         hashtag: &Hashtag,
     ) -> impl Stream<Item = (Hashtag, InstaPartialPost), Error = Error> {
         let delay = Delay::new(Instant::now() + self.delay.clone()).map_err(Error::from);
-        let res = get_posts_by_hashtag(&self.client, hashtag, None);
+        let res = get_posts_by_hashtag(hashtag, None);
         let hashtag = hashtag.clone();
         delay
             .and_then(|_| res)
@@ -44,7 +42,7 @@ impl InstaApi {
         id: &InstaPostId,
     ) -> impl Future<Item = InstaPostResponse, Error = Error> {
         let delay = Delay::new(Instant::now() + self.delay.clone()).map_err(Error::from);
-        let res = get_post_by_id(&self.client, id);
+        let res = get_post_by_id(id);
         delay.and_then(|_| res)
     }
 
@@ -53,14 +51,13 @@ impl InstaApi {
         hashtag: &Hashtag,
     ) -> impl Stream<Item = (Hashtag, InstaPartialPost), Error = Error> {
         let interval = self.delay.clone();
-        let client = self.client.clone();
         let hashtag2 = hashtag.clone();
         let posts_stream = ::futures::stream::unfold((None, true), move |(max_id, has_next)| {
             if has_next == false {
                 None
             } else {
                 let delay = Delay::new(Instant::now() + interval.clone()).map_err(Error::from);
-                let res = get_posts_by_hashtag(&client, &hashtag2, max_id);
+                let res = get_posts_by_hashtag(&hashtag2, max_id);
                 Some(delay.and_then(move |_| {
                     res.map(|res| (res.posts, (res.end_cursor, res.has_next_page)))
                 }))
@@ -80,22 +77,28 @@ impl InstaApi {
  * If call is failed because request limit, try to call again after API_COOLING_SEC seconds.
  */
 
+fn create_client() -> Client<HttpsConnector<HttpConnector>> {
+    Client::builder().build(HttpsConnector::new(1).unwrap())
+}
+
 fn api_call<D: DeserializeOwned>(
-    client: Client<HttpsConnector<HttpConnector>>,
     url: Uri,
     cooling: Duration,
 ) -> impl Future<Item = D, Error = Error> {
     loop_fn(Duration::new(0, 0), move |interval| {
         let cooling = cooling.clone();
         let delay = Delay::new(Instant::now() + interval).map_err(Error::from);
-        let api_fut = client
+        let api_fut = create_client()
             .get(url.clone())
             .and_then(|res| res.into_body().concat2())
             .map_err(Error::from)
             .map(move |chunk| match ::serde_json::from_slice::<D>(&chunk) {
                 Ok(item) => Loop::Break(item),
                 Err(_err) => {
-                    info!("Instagram API may be limited. Try again after {:?}", cooling);
+                    info!(
+                        "Instagram API may be limited. Try again after {:?}",
+                        cooling
+                    );
                     Loop::Continue(cooling)
                 }
             });
@@ -104,7 +107,6 @@ fn api_call<D: DeserializeOwned>(
 }
 
 fn get_posts_by_hashtag(
-    client: &Client<HttpsConnector<HttpConnector>>,
     hashtag: &Hashtag,
     max_id: Option<String>,
 ) -> impl Future<Item = InstaHashtagResponse, Error = Error> {
@@ -188,11 +190,10 @@ fn get_posts_by_hashtag(
         };
         Uri::from_str(url_str.as_str()).unwrap()
     };
-    api_call(client.clone(), url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
+    api_call(url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
 }
 
 pub fn get_post_by_id(
-    client: &Client<HttpsConnector<HttpConnector>>,
     post_id: &InstaPostId,
 ) -> impl Future<Item = InstaPostResponse, Error = Error> {
     #[derive(Deserialize)]
@@ -226,7 +227,7 @@ pub fn get_post_by_id(
         format!("https://www.instagram.com/p/{}/?__a=1", post_id.as_str()).as_str(),
     ).unwrap();
 
-    api_call(client.clone(), url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
+    api_call(url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
 }
 
 #[derive(Deserialize, Debug, Clone)]
