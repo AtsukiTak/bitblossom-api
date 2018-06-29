@@ -6,6 +6,7 @@ use mosaic::MosaicArt;
 use post::{BluummPost, GenericPost, Hashtag, HashtagList, InstaPost, InstaPostId, Post};
 use images::Size;
 use worker::{WorkerId, WorkerManager};
+use util::{IdHashMap, Id};
 
 use super::{OriginImageSize, PieceImageSize};
 
@@ -17,14 +18,26 @@ use super::{OriginImageSize, PieceImageSize};
 fn handler(
     id: u64,
     worker_manager: State<Mutex<WorkerManager<OriginImageSize, PieceImageSize>>>,
+    art_response_cache: State<Mutex<IdHashMap<MosaicArtResponse>>>,
 ) -> Result<Json<MosaicArtResponse>, NotFound<&'static str>> {
+    if let Some(cache) = art_response_cache.lock().unwrap().get(&Id::from_raw(id)) {
+        return Ok(Json(cache.clone()));
+    }
+
+    // else
     match worker_manager
         .inner()
         .lock()
         .unwrap()
         .get_worker(WorkerId::from_raw(id))
     {
-        Some(ref worker) => Ok(Json(construct_response(worker.get_art()))),
+        Some(ref worker) => {
+            let art = worker.get_art();
+            let id = art.id;
+            let res = construct_response(art);
+            art_response_cache.lock().unwrap().insert(id, res.clone());
+            Ok(Json(res))
+        }
         None => Err(NotFound("Nothing is also art...")),
     }
 }
@@ -50,14 +63,14 @@ where
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct MosaicArtResponse {
     mosaic_art: String, // base64 encoded,
     piece_posts: Vec<PostResponse>,
     insta_hashtags: HashtagList,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub enum PostResponse {
     BluummPost(BluummPostResponse),
     InstaPost(InstaPostResponse),
@@ -76,7 +89,7 @@ impl PostResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct BluummPostResponse {
     image: String,
     user_name: String,
@@ -96,7 +109,7 @@ impl BluummPostResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct InstaPostResponse {
     post_id: InstaPostId,
     image: String,

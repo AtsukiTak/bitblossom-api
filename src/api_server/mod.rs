@@ -7,6 +7,8 @@ use std::sync::Mutex;
 use worker::WorkerManager;
 use db::Mongodb;
 use images::size::{Size3000x3000, Size30x30};
+use util::IdHashMap;
+use self::get_art::MosaicArtResponse;
 
 type OriginImageSize = Size3000x3000;
 type PieceImageSize = Size30x30;
@@ -17,6 +19,7 @@ pub fn run(mongodb: Mongodb) {
         .manage(Mutex::new(
             WorkerManager::<OriginImageSize, PieceImageSize>::new(mongodb),
         ))
+        .manage(Mutex::new(IdHashMap::<MosaicArtResponse>::new()))
         .mount(
             "/",
             routes![
