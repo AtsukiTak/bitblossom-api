@@ -18,7 +18,7 @@ fn handler(
         .inner()
         .lock()
         .unwrap()
-        .get_worker(WorkerId(id))
+        .get_worker(WorkerId::from_raw(id))
     {
         Some(worker) => match encode_arg(json.into_inner()) {
             Ok(post) => {

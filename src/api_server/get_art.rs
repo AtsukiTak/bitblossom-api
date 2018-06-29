@@ -22,7 +22,7 @@ fn handler(
         .inner()
         .lock()
         .unwrap()
-        .get_worker(WorkerId(id))
+        .get_worker(WorkerId::from_raw(id))
     {
         Some(ref worker) => Ok(Json(construct_response(worker.get_art()))),
         None => Err(NotFound("Nothing is also art...")),

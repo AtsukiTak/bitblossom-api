@@ -1,13 +1,12 @@
-use std::{mem, collections::HashMap, hash::{BuildHasher, Hasher}, ops::DerefMut,
-          sync::{Arc, Mutex}};
-use rand::{FromEntropy, RngCore, prng::XorShiftRng};
+use std::{ops::DerefMut, sync::{Arc, Mutex}};
 use futures::{Future, Stream, sync::{mpsc::{self, UnboundedSender}, oneshot::{self, Sender}}};
 
 use insta::InstaFeeder;
 use db::Mongodb;
-use post::{BluummPost, GenericPost};
-use images::size::{MultipleOf, Size, SmallerThan};
+use post::{BluummPost, GenericPost, HashtagList};
+use images::{SizedImage, size::{MultipleOf, Size, SmallerThan}};
 use mosaic::{MosaicArt, MosaicArtGenerator};
+use util::{Id, IdGenerator, IdHashMap};
 use error::Error;
 
 pub struct WorkerManager<S, SS> {
@@ -30,17 +29,13 @@ where
         }
     }
 
-    pub fn start_worker(&mut self, generator: MosaicArtGenerator<S, SS>) -> WorkerId {
-        let worker = Worker::start(self.insta_feeder.clone(), self.db.clone(), generator);
+    pub fn start_worker(&mut self, origin: SizedImage<S>, hashtags: HashtagList) -> WorkerId {
+        let worker = Worker::start(self.insta_feeder.clone(), self.db.clone(), origin, hashtags);
         self.container.add(worker)
     }
 
     pub fn get_worker(&self, id: WorkerId) -> Option<&Worker<S, SS>> {
         self.container.get(id)
-    }
-
-    pub fn get_worker_ids<'a>(&'a self) -> impl Iterator<Item = WorkerId> + 'a {
-        self.container.ids()
     }
 
     pub fn stop_worker(&mut self, id: WorkerId) -> bool {
@@ -69,14 +64,16 @@ where
     fn start(
         insta_feeder: Arc<InstaFeeder>,
         db: Mongodb,
-        mut generator: MosaicArtGenerator<S, SS>,
+        origin: SizedImage<S>,
+        hashtags: HashtagList,
     ) -> Worker<S, SS> {
+        let (mut generator, initial_art) = MosaicArtGenerator::new(origin, hashtags.clone());
+
         // Initialize
         info!("Initializing mosaic art...");
         let piece_n = ((S::WIDTH * S::HEIGHT) / (SS::WIDTH * SS::HEIGHT)) as i64;
-        let mut init_insta_posts = db.find_insta_posts_by_hashtags(&generator.hashtags(), piece_n);
-        let mut init_bluumm_posts =
-            db.find_bluumm_posts_by_hashtags(&generator.hashtags(), piece_n);
+        let mut init_insta_posts = db.find_insta_posts_by_hashtags(&hashtags, piece_n);
+        let mut init_bluumm_posts = db.find_bluumm_posts_by_hashtags(&hashtags, piece_n);
         let init_insta_posts_iter = init_insta_posts
             .drain(..)
             .map(|p| GenericPost::InstaPost(p));
@@ -93,7 +90,7 @@ where
         info!("Initialized!!");
 
         // Create some thread sahred items
-        let art = Arc::new(Mutex::new(Arc::new(generator.current_art())));
+        let art = Arc::new(Mutex::new(Arc::new(initial_art)));
         let art2 = art.clone();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let (bluumm_post_tx, bluumm_post_rx) = mpsc::unbounded();
@@ -165,23 +162,33 @@ where
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct WorkerId(pub u64);
+pub struct WorkerId(Id);
+
+impl WorkerId {
+    pub fn into_raw(&self) -> u64 {
+        self.0.into_raw()
+    }
+
+    pub fn from_raw(id: u64) -> WorkerId {
+        WorkerId(Id::from_raw(id))
+    }
+}
 
 impl ::std::fmt::Display for WorkerId {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.into_raw())
     }
 }
 
 struct WorkerContainer<S, SS> {
-    container: HashMap<u64, Worker<S, SS>, NothingU64HasherBuilder>,
+    container: IdHashMap<Worker<S, SS>>,
     id_gen: IdGenerator,
 }
 
 impl<S, SS> WorkerContainer<S, SS> {
     fn new() -> WorkerContainer<S, SS> {
         WorkerContainer {
-            container: HashMap::with_hasher(NothingU64HasherBuilder),
+            container: IdHashMap::new(),
             id_gen: IdGenerator::new(),
         }
     }
@@ -198,68 +205,5 @@ impl<S, SS> WorkerContainer<S, SS> {
 
     fn take(&mut self, id: WorkerId) -> Option<Worker<S, SS>> {
         self.container.remove(&id.0)
-    }
-
-    fn ids<'a>(&'a self) -> impl Iterator<Item = WorkerId> + 'a {
-        self.container.keys().map(|k| WorkerId(*k))
-    }
-}
-
-struct IdGenerator {
-    rng: XorShiftRng,
-}
-
-impl IdGenerator {
-    fn new() -> IdGenerator {
-        IdGenerator {
-            rng: XorShiftRng::from_entropy(),
-        }
-    }
-
-    fn next_id(&mut self) -> u64 {
-        self.rng.next_u64()
-    }
-}
-
-struct NothingU64HasherBuilder;
-
-impl BuildHasher for NothingU64HasherBuilder {
-    type Hasher = NothingU64Hasher;
-    fn build_hasher(&self) -> Self::Hasher {
-        NothingU64Hasher { n: 0 }
-    }
-}
-
-struct NothingU64Hasher {
-    n: u64,
-}
-
-impl Hasher for NothingU64Hasher {
-    fn finish(&self) -> u64 {
-        self.n
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        self.n = match bytes.len() {
-            0 => 0,
-            1 => bytes[0] as u64,
-            2 => unsafe {
-                let b = *(bytes as *const _ as *const [u8; 2]);
-                mem::transmute::<[u8; 2], u16>(b) as u64
-            },
-            4 => unsafe {
-                let b = *(bytes as *const _ as *const [u8; 4]);
-                mem::transmute::<[u8; 4], u32>(b) as u64
-            },
-            8 => unsafe {
-                let b = *(bytes as *const _ as *const [u8; 8]);
-                mem::transmute::<[u8; 8], u64>(b) as u64
-            },
-            i => panic!("Unexpected hasher input : {}", i),
-        };
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.n = i;
     }
 }

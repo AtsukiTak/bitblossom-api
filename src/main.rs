@@ -40,6 +40,7 @@ pub mod worker;
 pub mod error;
 pub mod db;
 pub mod post;
+pub mod util;
 
 use self::db::Mongodb;
 

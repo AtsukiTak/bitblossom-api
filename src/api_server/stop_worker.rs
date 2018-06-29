@@ -13,7 +13,7 @@ fn handler(
         .inner()
         .lock()
         .unwrap()
-        .stop_worker(WorkerId(id))
+        .stop_worker(WorkerId::from_raw(id))
     {
         Ok("Worker has been stopped")
     } else {

@@ -4,7 +4,7 @@ use rocket_contrib::Json;
 
 use images::{Image, MultipleOf, Size, SizedImage, SmallerThan, size::{Size3000x3000, Size30x30}};
 use worker::{WorkerId, WorkerManager};
-use mosaic::MosaicArtGenerator;
+use post::HashtagList;
 use error::Error;
 use super::{OriginImageSize, PieceImageSize};
 
@@ -84,13 +84,11 @@ where
     S: Size + MultipleOf<SS>,
     SS: Size + SmallerThan<S>,
 {
-    let generator = MosaicArtGenerator::new(origin, hashtags);
-
     let id = worker_manager
         .inner()
         .lock()
         .unwrap()
-        .start_worker(generator);
+        .start_worker(origin, HashtagList::new(hashtags));
     info!("Run a new worker");
 
     id
