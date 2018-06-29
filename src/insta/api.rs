@@ -1,14 +1,16 @@
 use std::{str::FromStr, time::{Duration, Instant}};
-use futures::{Future, Stream, stream::iter_ok};
+use futures::{Future, Stream, future::{loop_fn, Loop}, stream::iter_ok};
 use hyper::{Uri, client::{Client, HttpConnector}};
 use hyper_tls::HttpsConnector;
 use tokio::timer::Delay;
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
+use serde::de::DeserializeOwned;
 
 use post::{Hashtag, InstaPostId};
 use error::Error;
 
 const API_INTERVAL_SEC: u64 = 3;
+const API_COOLING_SEC: u64 = 30;
 
 pub struct InstaApi {
     delay: Duration,
@@ -72,7 +74,35 @@ impl InstaApi {
     }
 }
 
-// internal api caller functions
+/*
+ * Internal api caller functions
+ * Call corresponding API of instagram.
+ * If call is failed because request limit, try to call again after API_COOLING_SEC seconds.
+ */
+
+fn api_call<D: DeserializeOwned>(
+    client: Client<HttpsConnector<HttpConnector>>,
+    url: Uri,
+    cooling: Duration,
+) -> impl Future<Item = D, Error = Error> {
+    loop_fn(Duration::new(0, 0), move |interval| {
+        let cooling = cooling.clone();
+        let delay = Delay::new(Instant::now() + interval).map_err(Error::from);
+        let api_fut = client
+            .get(url.clone())
+            .and_then(|res| res.into_body().concat2())
+            .map_err(Error::from)
+            .map(move |chunk| match ::serde_json::from_slice::<D>(&chunk) {
+                Ok(item) => Loop::Break(item),
+                Err(_err) => {
+                    info!("Instagram API may be limited. Try again after {:?}", cooling);
+                    Loop::Continue(cooling)
+                }
+            });
+        delay.and_then(|_| api_fut)
+    })
+}
+
 fn get_posts_by_hashtag(
     client: &Client<HttpsConnector<HttpConnector>>,
     hashtag: &Hashtag,
@@ -158,19 +188,7 @@ fn get_posts_by_hashtag(
         };
         Uri::from_str(url_str.as_str()).unwrap()
     };
-
-    client
-        .get(url)
-        .and_then(|res| res.into_body().concat2())
-        .map_err(Error::from)
-        .and_then(|chunk| {
-            trace!(
-                "Response from Instagram : {}",
-                ::std::str::from_utf8(&chunk).unwrap()
-            );
-            Ok(::serde_json::from_slice::<Response>(&chunk)?)
-        })
-        .map(parse_res)
+    api_call(client.clone(), url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
 }
 
 pub fn get_post_by_id(
@@ -208,18 +226,7 @@ pub fn get_post_by_id(
         format!("https://www.instagram.com/p/{}/?__a=1", post_id.as_str()).as_str(),
     ).unwrap();
 
-    client
-        .get(url)
-        .and_then(|res| res.into_body().concat2())
-        .map_err(Error::from)
-        .and_then(|chunk| {
-            trace!(
-                "Response from Instagram : {}",
-                ::std::str::from_utf8(&chunk).unwrap()
-            );
-            Ok(::serde_json::from_slice::<Response>(&chunk)?)
-        })
-        .map(parse_res)
+    api_call(client.clone(), url, Duration::new(API_COOLING_SEC, 0)).map(parse_res)
 }
 
 #[derive(Deserialize, Debug, Clone)]
