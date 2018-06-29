@@ -56,21 +56,25 @@ where
         .map(|post| PostResponse::from(post))
         .collect();
     let hashtags = art.hashtags.clone();
-    MosaicArtResponse {
+    let inner = MosaicArtResponseInner {
         mosaic_art: mosaic_art,
         piece_posts: piece_posts,
         insta_hashtags: hashtags,
-    }
+    };
+    MosaicArtResponse(Arc::new(inner))
 }
 
 #[derive(Serialize, Clone)]
-pub struct MosaicArtResponse {
+pub struct MosaicArtResponse(Arc<MosaicArtResponseInner>);
+
+#[derive(Serialize)]
+pub struct MosaicArtResponseInner {
     mosaic_art: String, // base64 encoded,
     piece_posts: Vec<PostResponse>,
     insta_hashtags: HashtagList,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize)]
 pub enum PostResponse {
     BluummPost(BluummPostResponse),
     InstaPost(InstaPostResponse),
@@ -89,7 +93,7 @@ impl PostResponse {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize)]
 pub struct BluummPostResponse {
     image: String,
     user_name: String,
@@ -109,7 +113,7 @@ impl BluummPostResponse {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize)]
 pub struct InstaPostResponse {
     post_id: InstaPostId,
     image: String,
